@@ -33,4 +33,4 @@ Live open/closed status of the Takari canal network (Krishna Koyna LIS, Takari p
 
 ## Map credits
 
-Satellite imagery: Esri, Maxar, Earthstar Geographics. Place names: OpenStreetMap contributors, CARTO. Map library: Leaflet.
+Satellite imagery: Esri, Maxar, Earthstar Geographics. Place names: Esri. Street map: OpenStreetMap contributors. Map library: Leaflet.

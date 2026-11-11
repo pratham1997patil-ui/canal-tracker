@@ -183,7 +183,7 @@ summary{cursor:pointer;font-weight:600}
         <span><i></i>Closed</span>
         <span><i class="p"></i>Proposed or cancelled</span>
       </div>
-    <p class="hint">Tap a canal to see its status. Zoom in to read village names. Use the layers button at the top right to switch to the street map, and &#9678; to show where you are.</p>
+    <p class="hint">Tap a canal to see its status. Zoom in to read village names. If a village name is missing, use the layers button at the top right to switch to the street map, and &#9678; to show where you are.</p>
   </section>
 
   <section class="view" id="v-canals">
@@ -503,10 +503,10 @@ function initMap(){
   map=L.map("map",{preferCanvas:true});
   map.createPane("names"); map.getPane("names").style.zIndex=450; map.getPane("names").style.pointerEvents="none";
   const sat=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,maxNativeZoom:18,attribution:"Imagery &copy; Esri, Maxar, Earthstar Geographics"});
-  const names=L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",{maxZoom:19,subdomains:"abcd",pane:"names",attribution:"Place names &copy; OpenStreetMap contributors &copy; CARTO"});
+  const names=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,maxNativeZoom:16,pane:"names",attribution:"Place names &copy; Esri"});
   const street=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"});
   const hybrid=L.layerGroup([sat,names]).addTo(map);
-  L.control.layers({"Satellite with village names":hybrid,"Street map":street},null,{position:"topright"}).addTo(map);
+  L.control.layers({"Satellite with village names":hybrid,"Street map (shows villages)":street},null,{position:"topright"}).addTo(map);
   L.control.scale({imperial:false}).addTo(map);
   const rend=L.canvas({tolerance:12,padding:0.4});
   const all=[];
