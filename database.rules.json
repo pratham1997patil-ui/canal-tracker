@@ -1,0 +1,8 @@
+{
+  "rules": {
+    ".read": true,
+    "canals": {
+      ".write": "auth != null"
+    }
+  }
+}

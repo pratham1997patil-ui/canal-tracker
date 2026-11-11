@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Takari Canal Tracker</title>
+<meta name="description" content="Live open and closed status of Takari canal distributaries on a satellite map, with days-open summary.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+/* Layout idea: a field instrument. Thin header with live count, three views
+   (network map, canal list, days-open summary), one bottom sheet for a canal. */
+:root{
+  --paper:#f3f5f2; --panel:#ffffff; --ink:#15262b; --muted:#5d6f72; --rule:#d6ddd9;
+  --water:#0b6fc2; --water-soft:#dcecf9; --idle:#9aa7a6; --warn:#a15c00; --warn-soft:#fbefd9;
+  --danger:#b3261e; --focus:#0b6fc2;
+  --display:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0e1a1d; --panel:#16262a; --ink:#e6eeec; --muted:#93a6a6; --rule:#2a3d41;
+    --water:#4fb0ff; --water-soft:#12344f; --idle:#566a6c; --warn:#f0b354; --warn-soft:#3a2c10;
+    --danger:#ff8a80; --focus:#4fb0ff; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0e1a1d; --panel:#16262a; --ink:#e6eeec; --muted:#93a6a6; --rule:#2a3d41;
+  --water:#4fb0ff; --water-soft:#12344f; --idle:#566a6c; --warn:#f0b354; --warn-soft:#3a2c10;
+  --danger:#ff8a80; --focus:#4fb0ff; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:400 15px/1.45 var(--body);-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px 48px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 16px;padding:16px 0 12px}
+h1{font:700 26px/1.05 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px}
+.hgrow{flex:1 1 220px;min-width:0}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);border:1px solid var(--rule);border-radius:999px;padding:4px 10px;background:var(--panel)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--idle)}
+.live.on .dot{background:var(--water)}
+.live.bad .dot{background:var(--warn)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 12px;min-width:0}
+.stat b{display:block;font:600 24px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+.stat.water b{color:var(--water)}
+nav{display:flex;gap:4px;border-bottom:1px solid var(--rule);margin-bottom:12px}
+nav a{flex:1;text-align:center;padding:10px 6px;text-decoration:none;color:var(--muted);font:600 16px var(--display);letter-spacing:.03em;text-transform:uppercase;border-bottom:3px solid transparent;margin-bottom:-1px}
+nav a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--water)}
+.view{display:none}
+.view.on{display:block}
+.note{background:var(--warn-soft);color:var(--ink);border-left:4px solid var(--warn);padding:8px 12px;border-radius:4px;font-size:13px;margin-bottom:12px}
+.note[hidden]{display:none}
+
+/* map */
+.mapbox{position:relative;background:var(--panel);border:1px solid var(--rule);border-radius:8px;overflow:hidden;height:clamp(340px,64vh,640px)}
+#map{width:100%;height:100%;background:#0b1518}
+.mapctl{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px}
+.mapctl button{width:40px;height:40px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);font:600 18px var(--display);cursor:pointer}
+.legend{position:absolute;left:8px;bottom:8px;background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:6px 10px;font-size:12px;display:flex;flex-direction:column;gap:3px}
+.legend i{display:inline-block;width:22px;height:0;border-top:3px solid var(--idle);vertical-align:middle;margin-right:6px}
+.legend i.o{border-top:4px solid var(--water)}
+.legend i.p{border-top:2px dashed var(--idle)}
+.hint{color:var(--muted);font-size:13px;margin:8px 0 0}
+
+/* list */
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
+.tools input[type=search],.tools select,.tools input[type=date]{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:9px 12px;min-width:0}
+.tools input[type=search]{flex:1 1 180px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--rule);background:var(--panel);border-radius:999px;padding:7px 14px;cursor:pointer;font-size:14px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.grp{font:600 14px var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 6px;display:flex;justify-content:space-between;gap:8px}
+.rows{background:var(--panel);border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--rule);padding:10px 12px;cursor:pointer;min-height:52px;border-left:4px solid transparent}
+.row:first-child{border-top:0}
+.row.open{border-left-color:var(--water);background:var(--water-soft)}
+.row .nm{flex:1;min-width:0}
+.row .nm b{display:block;font-weight:600;overflow-wrap:anywhere}
+.row .nm small{color:var(--muted);font-size:12px}
+.pill{flex:none;font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;border:1px solid var(--rule);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.pill.open{background:var(--water);border-color:var(--water);color:#fff}
+.pill.na{border-style:dashed}
+.empty{color:var(--muted);padding:24px 12px;text-align:center}
+
+/* summary */
+.tblwrap{overflow-x:auto;background:var(--panel);border:1px solid var(--rule);border-radius:8px}
+table{border-collapse:collapse;width:100%;min-width:520px}
+th,td{padding:9px 12px;border-top:1px solid var(--rule);text-align:left;vertical-align:middle}
+thead th{border-top:0;font:600 13px var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td .lnk{background:none;border:0;padding:0;text-align:left;cursor:pointer;font-weight:600;text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:3px;overflow-wrap:anywhere}
+.bar{position:relative;height:12px;min-width:120px;background:var(--paper);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.bar span{position:absolute;top:0;bottom:0;background:var(--water);min-width:2px}
+.axis{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.btn{border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:600}
+.btn.pri{background:var(--water);border-color:var(--water);color:#fff}
+.btn.stop{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.btn.dng{color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:default}
+.cap{color:var(--muted);font-size:13px;margin:8px 0 0;max-width:65ch}
+textarea{width:100%;height:120px;margin-top:8px;background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:8px;font:12px ui-monospace,Menlo,monospace;padding:8px}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:10}
+.scrim.on{display:flex}
+.sheet{background:var(--panel);color:var(--ink);width:100%;max-width:560px;max-height:88%;overflow:auto;border-radius:14px 14px 0 0;padding:16px 16px 24px;border:1px solid var(--rule);border-bottom:0}
+@media(min-width:700px){.scrim{align-items:center}.sheet{border-radius:14px;border-bottom:1px solid var(--rule)}}
+.sheet h2{font:700 22px/1.15 var(--display);margin:0;overflow-wrap:anywhere}
+.shead{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+.x{flex:none;width:40px;height:40px;border-radius:8px;border:1px solid var(--rule);background:none;cursor:pointer;font-size:18px}
+.now{margin:12px 0;padding:12px;border-radius:8px;border:1px solid var(--rule);display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.now.open{background:var(--water-soft);border-color:var(--water)}
+.now strong{font:600 18px var(--display)}
+.now .btn{min-width:130px;min-height:44px}
+dl{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin:12px 0;font-size:14px}
+dt{color:var(--muted)}
+dd{margin:0;overflow-wrap:anywhere}
+details{border-top:1px solid var(--rule);padding:10px 0}
+summary{cursor:pointer;font-weight:600}
+.form{display:grid;gap:10px;margin-top:10px}
+.form label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.form input{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:9px 10px;color:var(--ink);min-width:0;width:100%}
+.sat{color:var(--water);font-weight:600}
+.err{color:var(--danger);font-size:13px;min-height:1em}
+.hist{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.hist li{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--rule);border-radius:8px;padding:8px 10px;font-size:14px}
+.hist small{color:var(--muted);display:block}
+.hist .btn{padding:6px 10px;font-size:13px}
+@media(max-width:420px){h1{font-size:22px}.stat b{font-size:20px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* standalone site additions */
+.hbtn{border:1px solid var(--rule);background:var(--panel);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer}
+.legend{position:static;flex-direction:row;flex-wrap:wrap;gap:4px 18px;margin-top:8px}
+.legend i{border-top:3px solid #fff;box-shadow:0 0 0 1.5px #001018}
+.legend i.o{border-top:4px solid #38b8ff}
+.legend i.p{border-top:2px dashed #cfd6d6;box-shadow:none;background:#001018}
+.ctip{background:rgba(0,16,24,.82);color:#fff;border:0;border-radius:4px;padding:1px 6px;font:600 12px var(--display);box-shadow:none}
+.ctip:before{display:none}
+.locbtn{width:34px;height:34px;border-radius:4px;border:2px solid rgba(0,0,0,.2);background:#fff;color:#111;font-size:18px;cursor:pointer;line-height:1}
+.scrim{z-index:2000}
+.acts{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:8px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="hgrow">
+      <h1>Takari Canal Tracker</h1>
+      <div class="sub">Krishna Koyna LIS, Takari part &middot; <span id="ncanals"></span> canals from the KMZ</div>
+    </div>
+    <button type="button" class="hbtn" id="authbtn">Staff sign in</button>
+    <div class="live" id="live"><span class="dot"></span><span id="livetxt">Connecting</span></div>
+  </header>
+
+  <div class="note" id="note" hidden></div>
+
+  <div class="stats">
+    <div class="stat water"><b id="s-open">0</b><span>running now</span></div>
+    <div class="stat"><b id="s-ica">0</b><span>km of canal running</span></div>
+    <div class="stat"><b id="s-last">&ndash;</b><span>last change</span></div>
+  </div>
+
+  <nav aria-label="Views">
+    <a href="#map" data-v="map">Map</a>
+    <a href="#canals" data-v="canals">Canals</a>
+    <a href="#summary" data-v="summary">Summary</a>
+  </nav>
+
+  <section class="view" id="v-map">
+    <div class="mapbox">
+      <div id="map" aria-label="Satellite map of the canal network. Tap a canal to see or change its status."></div>
+      
+    </div>
+    <div class="legend">
+        <span><i class="o"></i>Running</span>
+        <span><i></i>Closed</span>
+        <span><i class="p"></i>Proposed or cancelled</span>
+      </div>
+    <p class="hint">Tap a canal to see its status. Zoom in to read village names. Use the layers button at the top right to switch to the street map, and &#9678; to show where you are.</p>
+  </section>
+
+  <section class="view" id="v-canals">
+    <div class="tools">
+      <input type="search" id="q" placeholder="Search canal, e.g. DY-24" aria-label="Search canals">
+      <div class="chips" role="group" aria-label="Filter by status">
+        <button type="button" class="chip" data-f="all" aria-pressed="true">All</button>
+        <button type="button" class="chip" data-f="open" aria-pressed="false">Running</button>
+        <button type="button" class="chip" data-f="closed" aria-pressed="false">Closed</button>
+      </div>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <section class="view" id="v-summary">
+    <div class="tools">
+      <select id="rng" aria-label="Period">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="month">This month</option>
+        <option value="custom">Custom dates</option>
+      </select>
+      <input type="date" id="d1" aria-label="From date" hidden>
+      <input type="date" id="d2" aria-label="To date" hidden>
+      <button type="button" class="chip" id="showall" aria-pressed="false">Include canals that did not run</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="m-can">0</b><span>canals ran</span></div>
+      <div class="stat"><b id="m-days">0</b><span>canal-days in total</span></div>
+      <div class="stat"><b id="m-runs">0</b><span>openings</span></div>
+    </div>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>Canal</th><th class="n">Days</th><th class="n">Hours</th><th class="n">Openings</th><th>When <div class="axis"><span id="ax1"></span><span id="ax2"></span></div></th></tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+    <p class="cap">Days counts each calendar date on which the canal carried water for any part of the day. Hours is the exact running time inside the chosen period. A canal that is still running is counted up to now.</p>
+    <div class="tools" style="margin-top:12px">
+      <button type="button" class="btn" id="csvdl">Download CSV</button>
+      <button type="button" class="btn" id="copy">Copy table</button>
+      <span class="sub" id="copymsg"></span>
+    </div>
+    <textarea id="csv" hidden readonly aria-label="Summary table text"></textarea>
+  </section>
+</div>
+
+<div class="scrim" id="scrim">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-name" id="sheet"></div>
+</div>
+
+<div class="scrim" id="login">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="lh">
+    <div class="shead"><h2 id="lh">Staff sign in</h2><button type="button" class="x" id="lclose" aria-label="Close">&times;</button></div>
+    <form class="form" id="lform">
+      <label for="lemail">Email<input type="email" id="lemail" autocomplete="username" required></label>
+      <label for="lpass">Password<input type="password" id="lpass" autocomplete="current-password" required></label>
+      <div class="err" id="lerr"></div>
+      <button type="submit" class="btn pri" id="lgo">Sign in</button>
+      <p class="sub">Only accounts created by the site owner can open and close canals. Everyone else can view.</p>
+    </form>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="canals.js"></script>
+<script src="config.js"></script>
+<script>
+"use strict";
+/* ---------- canal catalogue ---------- */
+function groupOf(c){
+  const n=c.name;
+  if(/Sonsal LBC/i.test(n)) return "Sonsal LBC";
+  if(/Chinchani/i.test(n)) return "Chinchani Ambak Feeder Canal";
+  if(/Mohite/i.test(n)) return "Mohite-Vadgaon distributary";
+  if(c.cons==="Pipe Distribution Network"||/PDN|^(S?Mr|M) ?\d|^Sub Main|^Main Canal \d|^\d+MM/i.test(n)) return "Pipe distribution network";
+  if(/Takari Main Canal|D\.?\s?Y|Distribut/i.test(n)) return "Takari Main Canal";
+  return "Other canals";
+}
+const GORDER=["Takari Main Canal","Sonsal LBC","Chinchani Ambak Feeder Canal","Mohite-Vadgaon distributary","Pipe distribution network","Other canals"];
+function sortKey(c){
+  const m=c.name.match(/D\.?\s?Y\.?\s?(?:No\.?)?\s?-?\s?(\d+)/i);
+  return [m?+m[1]:(/Main Canal$|LBC$|Feeder Canal$/.test(c.name)?-1:9999), c.name.replace(/^(Takari Main Canal|Sonsal LBC)\//,"")];
+}
+const CANALS=window.CANALS_RAW.map(c=>{
+  const dead=/cancel|cancled/i.test(c.remark||"")||c.status==="Proposed";
+  const k=sortKey(c);
+  return Object.assign({},c,{grp:groupOf(c),dead,k0:k[0],k1:k[1],
+    label:c.dup?c.name+" ("+(c.remark&&!/PDN/.test(c.remark)?c.remark:"part "+c.dup)+")":c.name,
+    depth:(c.name.replace(/^(Takari Main Canal|Sonsal LBC)\//,"").match(/\//g)||[]).length,
+    w:/Main Canal|Feeder|Rising/.test(c.type||"")?3.2:(c.type==="Distributary"||c.type==="Major"||c.type==="Branch Distributary")?1.9:1.1});
+}).sort((a,b)=>GORDER.indexOf(a.grp)-GORDER.indexOf(b.grp)||a.k0-b.k0||a.k1.localeCompare(b.k1,undefined,{numeric:true}));
+const BYID=new Map(CANALS.map(c=>[c.id,c]));
+document.getElementById("ncanals").textContent=CANALS.length;
+
+/* ---------- time maths (pure) ---------- */
+const HOUR=3600e3, DAY=24*HOUR;
+function cleanPeriods(raw){
+  if(!Array.isArray(raw)) return [];
+  return raw.filter(p=>p&&typeof p.s==="number"&&isFinite(p.s)&&(p.e==null||(typeof p.e==="number"&&p.e>=p.s)))
+    .map(p=>({s:p.s,e:p.e==null?null:p.e,sb:typeof p.sb==="string"?p.sb:null,eb:typeof p.eb==="string"?p.eb:null}))
+    .sort((a,b)=>a.s-b.s);
+}
+function openPeriod(ps){ for(let i=ps.length-1;i>=0;i--) if(ps[i].e==null) return ps[i]; return null; }
+function calc(ps,a,b,now){
+  const iv=[];
+  for(const p of ps){ const s=Math.max(p.s,a), e=Math.min(p.e==null?now:p.e,b); if(e>s) iv.push([s,e]); }
+  iv.sort((x,y)=>x[0]-y[0]);
+  const m=[]; for(const x of iv){ const l=m[m.length-1]; if(l&&x[0]<=l[1]) l[1]=Math.max(l[1],x[1]); else m.push([x[0],x[1]]); }
+  let ms=0; const days=new Set();
+  for(const [s,e] of m){ ms+=e-s; const d=new Date(s); d.setHours(0,0,0,0);
+    while(d.getTime()<e){ days.add(d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate()); d.setDate(d.getDate()+1); } }
+  return {ms,runs:iv.length,days:days.size,iv:m};
+}
+function dur(ms){
+  if(ms<HOUR) return Math.max(1,Math.round(ms/60e3))+" min";
+  if(ms<2*DAY) return Math.round(ms/HOUR)+" h";
+  return Math.floor(ms/DAY)+" d "+Math.round((ms%DAY)/HOUR)+" h";
+}
+const fmtDT=t=>new Date(t).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});
+const fmtD=t=>new Date(t).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+function toLocalInput(t){ const d=new Date(t-new Date(t).getTimezoneOffset()*60e3); return d.toISOString().slice(0,16); }
+function fromLocalInput(v){ if(!v) return null; const t=new Date(v).getTime(); return isFinite(t)?t:null; }
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+
+/* ---------- live state ---------- */
+const S={periods:new Map(),db:null,user:null,auth:null,canWrite:false,loaded:false,online:false,busy:false,sel:null,filter:"all",showAll:false,names:{}};
+const P=id=>S.periods.get(id)||[];
+const $=id=>document.getElementById(id);
+function setLive(cls,txt){ const el=$("live"); el.className="live "+cls; $("livetxt").textContent=txt; }
+function setNote(t){ const n=$("note"); n.hidden=!t; n.textContent=t||""; }
+function status(){
+  if(!S.db) return;
+  if(!S.loaded) return setLive("","Connecting");
+  setLive(S.online?"on":"bad",S.online?"Live":"Offline");
+  setNote(S.online?(S.canWrite?"":"Anyone can view. Staff sign in to open or close canals."):"You are offline. The status shown may be out of date.");
+}
+function connect(){
+  const cfg=window.FIREBASE_CONFIG;
+  if(!cfg||!cfg.apiKey||!cfg.databaseURL||!window.firebase){
+    setLive("bad","Not set up"); $("authbtn").hidden=true;
+    setNote("Live status is not connected yet. The site owner needs to add the Firebase settings in config.js (see README).");
+    renderAll(); return;
+  }
+  let rdb;
+  try{ firebase.initializeApp(cfg); rdb=firebase.database(); }
+  catch(e){ setLive("bad","Setup error"); setNote("The Firebase settings in config.js are not valid."); renderAll(); return; }
+  S.db=rdb;
+  const timer=setTimeout(()=>{ if(!S.loaded){ setLive("bad","Waiting for data"); setNote("The live data can't be reached yet. Check your connection."); } },10000);
+  rdb.ref("canals").on("value",snap=>{
+    const v=snap.val()||{}, m=new Map();
+    for(const id in v){ const ps=v[id]&&v[id].periods; m.set(id,cleanPeriods(ps&&typeof ps==="object"?Object.values(ps):[])); }
+    S.periods=m; S.loaded=true; clearTimeout(timer); status(); renderAll();
+  },()=>{ clearTimeout(timer); setLive("bad","No access"); setNote("Live data could not be read. Check that the database rules allow reading."); });
+  rdb.ref(".info/connected").on("value",s=>{ S.online=!!s.val(); status(); });
+  firebase.auth().onAuthStateChanged(u=>{ S.auth=u; S.canWrite=!!u; $("authbtn").textContent=u?"Sign out":"Staff sign in"; status(); renderAll(); });
+}
+async function savePeriods(id,ps){
+  if(!S.db||S.busy) return "Not connected.";
+  if(!S.auth) return "Sign in first.";
+  S.busy=true; renderSheet();
+  try{
+    await S.db.ref("canals/"+id).set({periods:ps.map(p=>{const o={s:p.s}; if(p.e!=null)o.e=p.e; if(p.sb)o.sb=p.sb; if(p.eb)o.eb=p.eb; return o;}),name:BYID.get(id).name,updated:Date.now()});
+    return "";
+  }catch(e){
+    if(e&&/PERMISSION_DENIED/i.test((e.code||"")+(e.message||""))) return "This account is not allowed to change canal status.";
+    return "Could not save. Check your connection and try again.";
+  }finally{ S.busy=false; renderAll(); }
+}
+async function myId(){ return S.auth?S.auth.uid:null; }
+
+/* ---------- sign in ---------- */
+$("authbtn").addEventListener("click",()=>{ if(S.auth){ firebase.auth().signOut(); return; } $("lerr").textContent=""; $("login").classList.add("on"); $("lemail").focus(); });
+$("lclose").addEventListener("click",()=>$("login").classList.remove("on"));
+$("lform").addEventListener("submit",async e=>{ e.preventDefault(); $("lgo").disabled=true; $("lerr").textContent="";
+  try{ await firebase.auth().signInWithEmailAndPassword($("lemail").value.trim(),$("lpass").value); $("lpass").value=""; $("login").classList.remove("on"); }
+  catch(err){ $("lerr").textContent=/network/i.test(err&&err.code||"")?"No connection. Try again.":"Wrong email or password."; }
+  finally{ $("lgo").disabled=false; } });
+/* ---------- header numbers ---------- */
+function renderStats(){
+  const now=Date.now(); let n=0,ica=0,last=0;
+  for(const c of CANALS){ const ps=P(c.id); if(openPeriod(ps)){ n++; ica+=c.len||0; }
+    for(const p of ps){ last=Math.max(last,p.s,p.e||0); } }
+  $("s-open").textContent=n;
+  $("s-ica").textContent=(ica/1000).toFixed(ica<1e5?1:0);
+  $("s-last").textContent=last?dur(Math.max(0,now-last))+" ago":"\u2013";
+}
+
+/* ---------- list ---------- */
+function renderList(){
+  const q=$("q").value.trim().toLowerCase(), now=Date.now(); let html="",grp=null,count=0,buf="",gopen=0,gn=0;
+  const flush=()=>{ if(grp!==null&&buf) html+='<div class="grp"><span>'+esc(grp)+'</span><span>'+gopen+' of '+gn+' running</span></div><div class="rows">'+buf+'</div>'; buf="";gopen=0;gn=0; };
+  for(const c of CANALS){
+    const op=openPeriod(P(c.id));
+    if(q&&!(c.label.toLowerCase().includes(q)||(c.remark||"").toLowerCase().includes(q))) continue;
+    if(S.filter==="open"&&!op) continue;
+    if(S.filter==="closed"&&op) continue;
+    if(c.grp!==grp){ flush(); grp=c.grp; }
+    gn++; if(op) gopen++; count++;
+    const meta=[c.type,c.ica?c.ica+" ha":"",c.dead?(c.status==="Proposed"?"proposed":"cancelled"):""].filter(Boolean).join(" \u00b7 ");
+    buf+='<button type="button" class="row'+(op?" open":"")+'" data-id="'+esc(c.id)+'" style="padding-left:'+(12+Math.min(c.depth,3)*14)+'px">'
+      +'<span class="nm"><b>'+esc(c.label)+'</b><small>'+esc(meta)+'</small></span>'
+      +(op?'<span class="pill open">Running '+esc(dur(now-op.s))+'</span>':'<span class="pill'+(c.dead?" na":"")+'">Closed</span>')+'</button>';
+  }
+  flush();
+  $("list").innerHTML=count?html:'<div class="empty">No canals match. Clear the search or choose All.</div>';
+}
+
+/* ---------- summary ---------- */
+function range(){
+  const v=$("rng").value, now=Date.now(); let a,b=now;
+  if(v==="month"){ const d=new Date(); d.setDate(1); d.setHours(0,0,0,0); a=d.getTime(); }
+  else if(v==="custom"){
+    a=$("d1").value?new Date($("d1").value+"T00:00").getTime():now-30*DAY;
+    b=$("d2").value?new Date($("d2").value+"T00:00").getTime()+DAY:now;
+    if(b>now&&now>a) b=now; if(b<=a) b=a+DAY;
+  } else { const d=new Date(now-(+v-1)*DAY); d.setHours(0,0,0,0); a=d.getTime(); }
+  return [a,b];
+}
+let lastRows=[];
+function renderSummary(){
+  const [a,b]=range(), now=Date.now(); const rows=[]; let cd=0,runs=0,ran=0;
+  for(const c of CANALS){ const r=calc(P(c.id),a,b,now); if(r.ms>0){ ran++; cd+=r.days; runs+=r.runs; } if(r.ms>0||S.showAll) rows.push({c,r}); }
+  rows.sort((x,y)=>y.r.ms-x.r.ms);
+  $("m-can").textContent=ran; $("m-days").textContent=cd; $("m-runs").textContent=runs;
+  $("ax1").textContent=fmtD(a); $("ax2").textContent=fmtD(b-1);
+  lastRows=rows.map(({c,r})=>[c.label,r.days,(r.ms/HOUR).toFixed(1),r.runs]);
+  $("tb").innerHTML=rows.length?rows.map(({c,r})=>'<tr><td><button type="button" class="lnk" data-id="'+esc(c.id)+'">'+esc(c.label)+'</button></td>'
+    +'<td class="n">'+r.days+'</td><td class="n">'+(r.ms/HOUR).toFixed(1)+'</td><td class="n">'+r.runs+'</td>'
+    +'<td><div class="bar">'+r.iv.map(([s,e])=>'<span style="left:'+((s-a)/(b-a)*100).toFixed(2)+'%;width:'+((e-s)/(b-a)*100).toFixed(2)+'%"></span>').join("")+'</div></td></tr>').join("")
+    :'<tr><td colspan="5" class="empty">No canal has been logged as running in this period. Open one from the Map or Canals view and it will appear here.</td></tr>';
+}
+
+/* ---------- canal sheet ---------- */
+function openSheet(id){ S.sel=id; S.err=""; S.confirm=null; $("scrim").classList.add("on"); renderSheet(); drawMap(); const x=$("sheet").querySelector(".x"); if(x) x.focus(); }
+function closeSheet(){ S.sel=null; $("scrim").classList.remove("on"); drawMap(); }
+function renderSheet(){
+  if(!S.sel) return; const c=BYID.get(S.sel), ps=P(c.id), op=openPeriod(ps), now=Date.now();
+  const can=S.db&&S.canWrite!==false;
+  const month=calc(ps,now-30*DAY,now,now);
+  const rows=[["Type",c.type],["Construction",c.cons],["Works status",c.status],["ICA",c.ica?c.ica+" ha":null],["Length",(c.lenw||c.len)?(c.lenw||c.len).toLocaleString("en-IN")+" m":null],
+    ["Offtake chainage",c.off!=null?c.off.toLocaleString("en-IN")+" m":null],["Bank",c.lr],["Remark",c.remark],["Last 30 days",month.ms?month.days+" days, "+(month.ms/HOUR).toFixed(1)+" h, "+month.runs+" openings":"Did not run"]]
+    .filter(r=>r[1]!=null&&r[1]!=="");
+  let h='<div class="shead"><h2 id="sh-name">'+esc(c.label)+'</h2><button type="button" class="x" aria-label="Close">&times;</button></div>';
+  h+='<div class="now'+(op?" open":"")+'"><div><strong>'+(op?"Running":"Closed")+'</strong><div class="sub">'+(op?"since "+esc(fmtDT(op.s))+" ("+esc(dur(now-op.s))+")":(ps.length?"last closed "+esc(fmtDT(ps[ps.length-1].e)):"no runs logged yet"))+'</div></div>';
+  if(can) h+='<button type="button" class="btn '+(op?"stop":"pri")+'" id="toggle"'+(S.busy?" disabled":"")+'>'+(op?"Close now":"Open now")+'</button>';
+  h+='</div><div class="err" id="sh-err">'+esc(S.err||"")+'</div>';
+  if(c.dead) h+='<div class="note">The KMZ marks this canal as '+(c.status==="Proposed"?"proposed":"cancelled")+'.</div>';
+  { const l=c.lines.reduce((x,y)=>y.length>x.length?y:x), m=l[Math.floor(l.length/2)];
+    h+='<div class="acts"><button type="button" class="btn" id="showmap">Show on map</button><a class="sat" href="https://www.google.com/maps/dir/?api=1&amp;destination='+m[1]+','+m[0]+'" target="_blank" rel="noopener">Directions in Google Maps</a></div>'; }
+  h+='<dl>'+rows.map(r=>'<dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd>').join("")+'</dl>';
+  if(can){
+    h+='<details><summary>Enter a different time</summary><div class="form">';
+    if(op) h+='<label for="f-e">Closed at<input type="datetime-local" id="f-e" value="'+toLocalInput(now)+'"></label><button type="button" class="btn" id="f-close">Close at this time</button>';
+    else h+='<label for="f-s">Opened at<input type="datetime-local" id="f-s" value="'+toLocalInput(now)+'"></label><label for="f-e">Closed at (leave empty if still running)<input type="datetime-local" id="f-e"></label><button type="button" class="btn" id="f-add">Save this run</button>';
+    h+='</div></details>';
+  }
+  h+='<details'+(ps.length?" open":"")+'><summary>Runs logged ('+ps.length+')</summary>';
+  if(!ps.length) h+='<p class="sub">Nothing logged yet.</p>';
+  else{ h+='<ul class="hist">'; for(let i=ps.length-1;i>=0;i--){ const p=ps[i]; const who=p.sb&&S.names[p.sb]?" \u00b7 by "+S.names[p.sb]:"";
+      h+='<li><span>'+esc(fmtDT(p.s))+' &rarr; '+(p.e==null?"running":esc(fmtDT(p.e)))+'<small>'+esc(dur((p.e==null?now:p.e)-p.s))+esc(who)+'</small></span>'
+        +(can?'<button type="button" class="btn dng" data-del="'+i+'">'+(S.confirm===i?"Confirm delete":"Delete")+'</button>':"")+'</li>'; }
+    h+='</ul>'; }
+  h+='</details>';
+  $("sheet").innerHTML=h;
+  loadNames(ps);
+}
+async function loadNames(ps){
+  if(!S.user||typeof S.user.profiles!=="function") return;
+  const ids=[...new Set(ps.map(p=>p.sb).filter(id=>id&&!(id in S.names)))]; if(!ids.length) return;
+  for(const id of ids) S.names[id]="";
+  try{ const pr=await S.user.profiles(ids); let got=false; for(const id of ids){ const n=pr&&pr[id]&&pr[id].name; if(n){ S.names[id]=n; got=true; } } if(got) renderSheet(); }catch(e){}
+}
+function overlaps(ps,s,e,skip){ const E=e==null?Infinity:e; return ps.some((p,i)=>i!==skip&&s<(p.e==null?Infinity:p.e)&&p.s<E); }
+$("sheet").addEventListener("click",async ev=>{
+  const t=ev.target.closest("button"); if(!t||!S.sel) return; const id=S.sel, ps=P(id).map(p=>Object.assign({},p)), now=Date.now();
+  if(t.classList.contains("x")) return closeSheet();
+  const op=openPeriod(ps); let err=null, next=null;
+  if(t.id==="toggle"){
+    const me=await myId();
+    if(op){ op.e=Math.max(now,op.s+1); op.eb=me; next=ps; }
+    else if(overlaps(ps,now,null,-1)) err="A logged run already covers this time.";
+    else next=ps.concat([{s:now,e:null,sb:me}]);
+  }else if(t.id==="f-close"){
+    const e=fromLocalInput($("f-e").value);
+    if(e==null) err="Enter the closing time.";
+    else if(e<=op.s) err="Closing time must be after it was opened ("+fmtDT(op.s)+").";
+    else if(e>now+60e3) err="Closing time cannot be in the future.";
+    else{ op.e=e; op.eb=await myId(); next=ps; }
+  }else if(t.id==="f-add"){
+    const s=fromLocalInput($("f-s").value), e=fromLocalInput($("f-e").value);
+    if(s==null) err="Enter the opening time.";
+    else if(s>now+60e3||(e!=null&&e>now+60e3)) err="Times cannot be in the future.";
+    else if(e!=null&&e<=s) err="Closing time must be after the opening time.";
+    else if(overlaps(ps,s,e,-1)) err="This overlaps a run that is already logged.";
+    else next=ps.concat([{s,e,sb:await myId()}]);
+  }else if(t.dataset.del!=null){
+    const i=+t.dataset.del;
+    if(S.confirm!==i){ S.confirm=i; return renderSheet(); }
+    ps.splice(i,1); next=ps;
+  }else return;
+  S.confirm=null;
+  if(next) err=await savePeriods(id,next.sort((a,b)=>a.s-b.s));
+  S.err=err||""; renderSheet();
+});
+$("scrim").addEventListener("click",e=>{ if(e.target===$("scrim")) closeSheet(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&S.sel) closeSheet(); });
+document.addEventListener("click",e=>{ const r=e.target.closest("[data-id]"); if(r&&!r.closest("#sheet")) openSheet(r.dataset.id); });
+
+/* ---------- map (Leaflet, satellite) ---------- */
+const V={fitted:false}; let map=null,bounds=null; const LY=new Map();
+function initMap(){
+  if(!window.L){ $("map").innerHTML='<p class="empty">The map could not load. Check your connection and reload the page.</p>'; return; }
+  map=L.map("map",{preferCanvas:true});
+  map.createPane("names"); map.getPane("names").style.zIndex=450; map.getPane("names").style.pointerEvents="none";
+  const sat=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,maxNativeZoom:18,attribution:"Imagery &copy; Esri, Maxar, Earthstar Geographics"});
+  const names=L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",{maxZoom:19,subdomains:"abcd",pane:"names",attribution:"Place names &copy; OpenStreetMap contributors &copy; CARTO"});
+  const street=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"});
+  const hybrid=L.layerGroup([sat,names]).addTo(map);
+  L.control.layers({"Satellite with village names":hybrid,"Street map":street},null,{position:"topright"}).addTo(map);
+  L.control.scale({imperial:false}).addTo(map);
+  const rend=L.canvas({tolerance:12,padding:0.4});
+  const all=[];
+  for(const c of CANALS){
+    const ll=c.lines.map(l=>l.map(p=>[p[1],p[0]])); for(const l of ll) for(const p of l) all.push(p);
+    const halo=L.polyline(ll,{renderer:rend,interactive:false}).addTo(map);
+    const line=L.polyline(ll,{renderer:rend}).addTo(map);
+    line.on("click",e=>{ L.DomEvent.stop(e); openSheet(c.id); });
+    LY.set(c.id,{halo,line,key:-1,tip:null,ll});
+  }
+  bounds=L.latLngBounds(all); map.setView(bounds.getCenter(),11); V.fitted=false;
+  const Loc=L.Control.extend({options:{position:"topleft"},onAdd(){ const b=L.DomUtil.create("button","locbtn"); b.type="button"; b.textContent="◎"; b.title="Show my location"; b.setAttribute("aria-label","Show my location");
+    L.DomEvent.disableClickPropagation(b); b.onclick=()=>map.locate({setView:true,maxZoom:15}); return b; }});
+  map.addControl(new Loc());
+  let me=null; map.on("locationfound",e=>{ if(me) me.remove(); me=L.circleMarker(e.latlng,{radius:8,color:"#fff",weight:2,fillColor:"#ff3b30",fillOpacity:1}).addTo(map); });
+  map.on("locationerror",()=>setNote("Your location could not be read. Allow location access for this site and try again."));
+}
+function drawMap(){
+  if(!map) return;
+  for(const c of CANALS){ const y=LY.get(c.id), o=!!openPeriod(P(c.id)), sel=S.sel===c.id, key=(o?1:0)+(sel?2:0); if(y.key===key) continue; y.key=key;
+    y.halo.setStyle({color:sel?"#ffd400":"#001018",weight:(o?c.w+7:c.w+3.5),opacity:sel?1:(o?.75:.55)});
+    y.line.setStyle({color:o?"#38b8ff":(c.dead?"#cfd6d6":"#ffffff"),weight:o?c.w+3:c.w+1,opacity:1,dashArray:c.dead&&!o?"4 6":null});
+    if(o||sel){ y.halo.bringToFront(); y.line.bringToFront(); }
+    if(o&&!y.tip){ const l=y.ll.reduce((x,z)=>z.length>x.length?z:x); y.tip=L.tooltip({permanent:true,direction:"right",className:"ctip",opacity:1,interactive:false}).setLatLng(l[Math.floor(l.length/2)]).setContent(esc(c.label.replace(/^Takari Main Canal\//,""))).addTo(map); }
+    else if(!o&&y.tip){ y.tip.remove(); y.tip=null; } }
+}
+function sizeMap(){ if(!map) return false; map.invalidateSize(); if(!V.fitted&&map.getSize().x>0){ map.fitBounds(bounds,{padding:[12,12]}); V.fitted=true; } return true; }
+function showOnMap(id){ closeSheet(); location.hash="#map"; setTimeout(()=>{ if(!map) return; map.invalidateSize(); map.fitBounds(L.latLngBounds(LY.get(id).ll.flat()),{padding:[40,40],maxZoom:16}); S.sel=id; drawMap(); },60); }
+$("sheet").addEventListener("click",e=>{ if(e.target.id==="showmap"&&S.sel) showOnMap(S.sel); });
+$("csvdl").addEventListener("click",()=>{ const [a,b]=range(); const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  const txt="Canal,Days,Hours,Openings\r\n"+lastRows.map(r=>r.map(q).join(",")).join("\r\n");
+  const u=URL.createObjectURL(new Blob(["﻿"+txt],{type:"text/csv"})); const l=document.createElement("a"); l.href=u; l.download="canal-summary-"+new Date(a).toISOString().slice(0,10)+"-to-"+new Date(b-1).toISOString().slice(0,10)+".csv"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000); });
+/* ---------- views ---------- */
+function view(){ const h=(location.hash||"").slice(1); return ["map","canals","summary"].includes(h)?h:"map"; }
+function showView(){ const v=view(); for(const n of ["map","canals","summary"]) $("v-"+n).classList.toggle("on",n===v);
+  document.querySelectorAll("nav a").forEach(a=>{ if(a.dataset.v===v) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
+  if(v==="map"){ sizeMap(!V.fitted); drawMap(); } }
+function renderAll(){ renderStats(); renderList(); renderSummary(); drawMap(); if(S.sel) renderSheet(); }
+window.addEventListener("hashchange",showView);
+$("q").addEventListener("input",renderList);
+document.querySelectorAll(".chip[data-f]").forEach(b=>b.addEventListener("click",()=>{ S.filter=b.dataset.f; document.querySelectorAll(".chip[data-f]").forEach(x=>x.setAttribute("aria-pressed",x===b)); renderList(); }));
+$("rng").addEventListener("change",()=>{ const c=$("rng").value==="custom"; $("d1").hidden=$("d2").hidden=!c; renderSummary(); });
+$("d1").addEventListener("change",renderSummary); $("d2").addEventListener("change",renderSummary);
+$("showall").addEventListener("click",()=>{ S.showAll=!S.showAll; $("showall").setAttribute("aria-pressed",S.showAll); renderSummary(); });
+$("copy").addEventListener("click",async()=>{ const [a,b]=range(); const txt="Takari canal running summary, "+fmtD(a)+" to "+fmtD(b-1)+"\nCanal\tDays\tHours\tOpenings\n"+lastRows.map(r=>r.join("\t")).join("\n");
+  try{ await navigator.clipboard.writeText(txt); $("copymsg").textContent="Copied. Paste it into Excel or a message."; }
+  catch(e){ const ta=$("csv"); ta.hidden=false; ta.value=txt; ta.select(); $("copymsg").textContent="Select and copy the text below."; } });
+
+initMap(); showView(); renderAll(); connect();
+setInterval(()=>{ if(!document.hidden&&!S.sel){ renderStats(); renderList(); } },60000);
+</script>
+</body>
+</html>
