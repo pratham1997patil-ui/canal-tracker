@@ -97,7 +97,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 td .lnk{background:none;border:0;padding:0;text-align:left;cursor:pointer;font-weight:600;text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:3px;overflow-wrap:anywhere}
 .bar{position:relative;height:12px;min-width:120px;background:var(--paper);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
 .bar span{position:absolute;top:0;bottom:0;background:var(--water);min-width:2px}
-.axis{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.axis{display:flex;justify-content:space-between;gap:16px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .btn{border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:600}
 .btn.pri{background:var(--water);border-color:var(--water);color:#fff}
 .btn.stop{background:var(--ink);border-color:var(--ink);color:var(--paper)}
@@ -212,7 +212,7 @@ summary{cursor:pointer;font-weight:600}
     </div>
     <div class="stats">
       <div class="stat"><b id="m-can">0</b><span>canals ran</span></div>
-      <div class="stat"><b id="m-days">0</b><span>canal-days in total</span></div>
+      <div class="stat"><b id="m-days">0</b><span>days water was flowing (any canal)</span></div>
       <div class="stat"><b id="m-runs">0</b><span>openings</span></div>
     </div>
     <div class="tblwrap">
@@ -221,7 +221,7 @@ summary{cursor:pointer;font-weight:600}
         <tbody id="tb"></tbody>
       </table>
     </div>
-    <p class="cap">Days counts each calendar date on which the canal carried water for any part of the day. Hours is the exact running time inside the chosen period. A canal that is still running is counted up to now.</p>
+    <p class="cap">Hours is the exact running time inside the chosen period, and Days is those hours divided by 24 (8.5 hours is 0.35 days). The tile at the top counts time once even when several canals ran together. A canal that is still running is counted up to now.</p>
     <div class="tools" style="margin-top:12px">
       <button type="button" class="btn" id="csvdl">Download CSV</button>
       <button type="button" class="btn" id="copy">Copy table</button>
@@ -296,16 +296,17 @@ function calc(ps,a,b,now){
   for(const p of ps){ const s=Math.max(p.s,a), e=Math.min(p.e==null?now:p.e,b); if(e>s) iv.push([s,e]); }
   iv.sort((x,y)=>x[0]-y[0]);
   const m=[]; for(const x of iv){ const l=m[m.length-1]; if(l&&x[0]<=l[1]) l[1]=Math.max(l[1],x[1]); else m.push([x[0],x[1]]); }
-  let ms=0; const days=new Set();
-  for(const [s,e] of m){ ms+=e-s; const d=new Date(s); d.setHours(0,0,0,0);
-    while(d.getTime()<e){ days.add(d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate()); d.setDate(d.getDate()+1); } }
-  return {ms,runs:iv.length,days:days.size,iv:m};
+  let ms=0;
+  for(const [x,y] of m) ms+=y-x;
+  return {ms,runs:iv.length,days:ms/DAY,iv:m};
 }
 function dur(ms){
   if(ms<HOUR) return Math.max(1,Math.round(ms/60e3))+" min";
   if(ms<2*DAY) return Math.round(ms/HOUR)+" h";
   return Math.floor(ms/DAY)+" d "+Math.round((ms%DAY)/HOUR)+" h";
 }
+const fmtDays=d=>d>=10?d.toFixed(1):d.toFixed(2);
+const fmtShort=t=>new Date(t).toLocaleDateString("en-IN",{day:"numeric",month:"short"});
 const fmtDT=t=>new Date(t).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});
 const fmtD=t=>new Date(t).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
 function toLocalInput(t){ const d=new Date(t-new Date(t).getTimezoneOffset()*60e3); return d.toISOString().slice(0,16); }
@@ -408,14 +409,15 @@ function range(){
 }
 let lastRows=[];
 function renderSummary(){
-  const [a,b]=range(), now=Date.now(); const rows=[]; let cd=0,runs=0,ran=0;
-  for(const c of CANALS){ const r=calc(P(c.id),a,b,now); if(r.ms>0){ ran++; cd+=r.days; runs+=r.runs; } if(r.ms>0||S.showAll) rows.push({c,r}); }
+  const [a,b]=range(), now=Date.now(); const rows=[]; let runs=0,ran=0; const allIv=[];
+  for(const c of CANALS){ const r=calc(P(c.id),a,b,now); if(r.ms>0){ ran++; runs+=r.runs; for(const x of r.iv) allIv.push(x); } if(r.ms>0||S.showAll) rows.push({c,r}); }
   rows.sort((x,y)=>y.r.ms-x.r.ms);
-  $("m-can").textContent=ran; $("m-days").textContent=cd; $("m-runs").textContent=runs;
-  $("ax1").textContent=fmtD(a); $("ax2").textContent=fmtD(b-1);
-  lastRows=rows.map(({c,r})=>[c.label,r.days,(r.ms/HOUR).toFixed(1),r.runs]);
+  $("m-can").textContent=ran; allIv.sort((x,y)=>x[0]-y[0]); let um=0,cur=null; for(const x of allIv){ if(cur&&x[0]<=cur[1]) cur[1]=Math.max(cur[1],x[1]); else { if(cur) um+=cur[1]-cur[0]; cur=[x[0],x[1]]; } } if(cur) um+=cur[1]-cur[0];
+  $("m-days").textContent=fmtDays(um/DAY); $("m-runs").textContent=runs;
+  $("ax1").textContent=fmtShort(a); $("ax2").textContent=fmtShort(b-1);
+  lastRows=rows.map(({c,r})=>[c.label,fmtDays(r.days),(r.ms/HOUR).toFixed(1),r.runs]);
   $("tb").innerHTML=rows.length?rows.map(({c,r})=>'<tr><td><button type="button" class="lnk" data-id="'+esc(c.id)+'">'+esc(c.label)+'</button></td>'
-    +'<td class="n">'+r.days+'</td><td class="n">'+(r.ms/HOUR).toFixed(1)+'</td><td class="n">'+r.runs+'</td>'
+    +'<td class="n">'+fmtDays(r.days)+'</td><td class="n">'+(r.ms/HOUR).toFixed(1)+'</td><td class="n">'+r.runs+'</td>'
     +'<td><div class="bar">'+r.iv.map(([s,e])=>'<span style="left:'+((s-a)/(b-a)*100).toFixed(2)+'%;width:'+((e-s)/(b-a)*100).toFixed(2)+'%"></span>').join("")+'</div></td></tr>').join("")
     :'<tr><td colspan="5" class="empty">No canal has been logged as running in this period. Open one from the Map or Canals view and it will appear here.</td></tr>';
 }
@@ -428,7 +430,7 @@ function renderSheet(){
   const can=S.db&&S.canWrite!==false;
   const month=calc(ps,now-30*DAY,now,now);
   const rows=[["Type",c.type],["Construction",c.cons],["Works status",c.status],["ICA",c.ica?c.ica+" ha":null],["Length",(c.lenw||c.len)?(c.lenw||c.len).toLocaleString("en-IN")+" m":null],
-    ["Offtake chainage",c.off!=null?c.off.toLocaleString("en-IN")+" m":null],["Bank",c.lr],["Remark",c.remark],["Last 30 days",month.ms?month.days+" days, "+(month.ms/HOUR).toFixed(1)+" h, "+month.runs+" openings":"Did not run"]]
+    ["Offtake chainage",c.off!=null?c.off.toLocaleString("en-IN")+" m":null],["Bank",c.lr],["Remark",c.remark],["Last 30 days",month.ms?fmtDays(month.days)+" days ("+(month.ms/HOUR).toFixed(1)+" h), "+month.runs+(month.runs===1?" opening":" openings"):"Did not run"]]
     .filter(r=>r[1]!=null&&r[1]!=="");
   let h='<div class="shead"><h2 id="sh-name">'+esc(c.label)+'</h2><button type="button" class="x" aria-label="Close">&times;</button></div>';
   h+='<div class="now'+(op?" open":"")+'"><div><strong>'+(op?"Running":"Closed")+'</strong><div class="sub">'+(op?"since "+esc(fmtDT(op.s))+" ("+esc(dur(now-op.s))+")":(ps.length?"last closed "+esc(fmtDT(ps[ps.length-1].e)):"no runs logged yet"))+'</div></div>';
