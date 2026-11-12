@@ -105,7 +105,9 @@ td .lnk{background:none;border:0;padding:0;text-align:left;cursor:pointer;font-w
 tbody td:first-child{position:sticky;left:0;background:var(--panel);z-index:1;min-width:92px}
 #v-summary table{min-width:0}
 #v-summary th,#v-summary td{padding:9px 6px}
-#v-summary td.n{white-space:nowrap}
+#v-summary td.dhm{white-space:normal;min-width:84px;line-height:1.35}
+.dhm span,#m-days span{white-space:nowrap;display:block}
+#m-days{font-size:22px;line-height:1.2}
 .dd{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 #v-summary th:first-child,#v-summary td:first-child{padding-left:10px}
 .axis{display:flex;justify-content:space-between;gap:16px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -223,7 +225,7 @@ summary{cursor:pointer;font-weight:600}
     </div>
     <div class="stats">
       <div class="stat"><b id="m-can">0</b><span>canals ran</span></div>
-      <div class="stat"><b id="m-days">0</b><span>days water flowed</span></div>
+      <div class="stat"><b id="m-days">0</b><span>water flowed (any canal)</span></div>
       <div class="stat"><b id="m-runs">0</b><span>openings</span></div>
     </div>
     <div class="tblwrap">
@@ -316,7 +318,11 @@ function dur(ms){
   if(ms<2*DAY) return Math.round(ms/HOUR)+" h";
   return Math.floor(ms/DAY)+" d "+Math.round((ms%DAY)/HOUR)+" h";
 }
-const fmtHM=ms=>{ const m=Math.round(ms/60e3), h=Math.floor(m/60), mm=m%60; return h+"h "+String(mm).padStart(2,"0")+"m"; };
+const fmtDHM=ms=>{ const t=Math.round(ms/60e3), d=Math.floor(t/1440), h=Math.floor(t%1440/60), m=t%60;
+  const pl=(n,w)=>n+" "+w+(n===1?"":"s"), out=[];
+  if(d) out.push(pl(d,"day")); if(d||h) out.push(h+" hr"); out.push(m+" min"); return out; };
+const fmtHM=ms=>fmtDHM(ms).join(" ");
+const htmlHM=ms=>{ const p=fmtDHM(ms); const d=/day/.test(p[0])?p.shift():""; return (d?'<span class="d">'+d+'</span>':"")+'<span>'+p.join(" ")+'</span>'; };
 const fmtDays=d=>d>=1?d.toFixed(1):d.toFixed(2);
 const fmtShort=t=>new Date(t).toLocaleDateString("en-IN",{day:"numeric",month:"short"});
 const fmtDT=t=>new Date(t).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});
@@ -425,13 +431,13 @@ function renderSummary(){
   for(const c of CANALS){ const r=calc(P(c.id),a,b,now); if(r.ms>0){ ran++; runs+=r.runs; for(const x of r.iv) allIv.push(x); } if(r.ms>0||S.showAll) rows.push({c,r}); }
   rows.sort((x,y)=>y.r.ms-x.r.ms);
   $("m-can").textContent=ran; allIv.sort((x,y)=>x[0]-y[0]); let um=0,cur=null; for(const x of allIv){ if(cur&&x[0]<=cur[1]) cur[1]=Math.max(cur[1],x[1]); else { if(cur) um+=cur[1]-cur[0]; cur=[x[0],x[1]]; } } if(cur) um+=cur[1]-cur[0];
-  $("m-days").textContent=fmtDays(um/DAY); $("m-runs").textContent=runs;
+  $("m-days").innerHTML=htmlHM(um); $("m-runs").textContent=runs;
   const runsIn=c=>P(c.id).filter(p=>p.s<b&&(p.e==null?now:p.e)>a);
   const runTxt=p=>fmtDT(p.s)+" \u2192 "+(p.e==null?"still running":fmtDT(p.e));
-  lastRows=rows.map(({c,r})=>[c.label,runsIn(c).map(runTxt).join("; "),fmtHM(r.ms),fmtDays(r.days)]);
+  lastRows=rows.map(({c,r})=>[c.label,runsIn(c).map(runTxt).join("; "),fmtHM(r.ms)]);
   $("tb").innerHTML=rows.length?rows.map(({c,r})=>'<tr><td><button type="button" class="lnk" data-id="'+esc(c.id)+'">'+esc(c.label)+'</button></td>'
     +'<td class="runs">'+(runsIn(c).map(p=>'<div'+(p.e==null?' class="runon"':'')+'><span>'+esc(fmtDT(p.s))+'</span> &rarr; <span>'+(p.e==null?'still running':esc(fmtDT(p.e)))+'</span></div>').join("")||'<span class="sub">Did not run</span>')+'</td>'
-    +'<td class="n">'+fmtHM(r.ms)+'<small class="dd">'+fmtDays(r.days)+' days</small></td></tr>').join("")
+    +'<td class="n dhm">'+htmlHM(r.ms)+'</td></tr>').join("")
     :'<tr><td colspan="3" class="empty">No canal has been logged as running in this period. Open one from the Map or Canals view and it will appear here.</td></tr>';
 }
 
@@ -443,7 +449,7 @@ function renderSheet(){
   const can=S.db&&S.canWrite!==false;
   const month=calc(ps,now-30*DAY,now,now);
   const rows=[["Type",c.type],["Construction",c.cons],["Works status",c.status],["ICA",c.ica?c.ica+" ha":null],["Length",(c.lenw||c.len)?(c.lenw||c.len).toLocaleString("en-IN")+" m":null],
-    ["Offtake chainage",c.off!=null?c.off.toLocaleString("en-IN")+" m":null],["Bank",c.lr],["Remark",c.remark],["Last 30 days",month.ms?fmtDays(month.days)+" days ("+fmtHM(month.ms)+"), "+month.runs+(month.runs===1?" opening":" openings"):"Did not run"]]
+    ["Offtake chainage",c.off!=null?c.off.toLocaleString("en-IN")+" m":null],["Bank",c.lr],["Remark",c.remark],["Last 30 days",month.ms?fmtHM(month.ms)+", "+month.runs+(month.runs===1?" opening":" openings"):"Did not run"]]
     .filter(r=>r[1]!=null&&r[1]!=="");
   let h='<div class="shead"><h2 id="sh-name">'+esc(c.label)+'</h2><button type="button" class="x" aria-label="Close">&times;</button></div>';
   h+='<div class="now'+(op?" open":"")+'"><div><strong>'+(op?"Running":"Closed")+'</strong><div class="sub">'+(op?"since "+esc(fmtDT(op.s))+" ("+esc(dur(now-op.s))+")":(ps.length?"last closed "+esc(fmtDT(ps[ps.length-1].e)):"no runs logged yet"))+'</div></div>';
@@ -552,7 +558,7 @@ function sizeMap(){ if(!map) return false; map.invalidateSize(); if(!V.fitted&&m
 function showOnMap(id){ closeSheet(); location.hash="#map"; setTimeout(()=>{ if(!map) return; map.invalidateSize(); map.fitBounds(L.latLngBounds(LY.get(id).ll.flat()),{padding:[40,40],maxZoom:16}); S.sel=id; drawMap(); },60); }
 $("sheet").addEventListener("click",e=>{ if(e.target.id==="showmap"&&S.sel) showOnMap(S.sel); });
 $("csvdl").addEventListener("click",()=>{ const [a,b]=range(); const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
-  const txt="Canal,Opened -> Closed,Running time,Days\r\n"+lastRows.map(r=>r.map(q).join(",")).join("\r\n");
+  const txt="Canal,Opened -> Closed,Run time\r\n"+lastRows.map(r=>r.map(q).join(",")).join("\r\n");
   const u=URL.createObjectURL(new Blob(["﻿"+txt],{type:"text/csv"})); const l=document.createElement("a"); l.href=u; l.download="canal-summary-"+new Date(a).toISOString().slice(0,10)+"-to-"+new Date(b-1).toISOString().slice(0,10)+".csv"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000); });
 /* ---------- views ---------- */
 function view(){ const h=(location.hash||"").slice(1); return ["map","canals","summary"].includes(h)?h:"map"; }
@@ -566,7 +572,7 @@ document.querySelectorAll(".chip[data-f]").forEach(b=>b.addEventListener("click"
 $("rng").addEventListener("change",()=>{ const c=$("rng").value==="custom"; $("d1").hidden=$("d2").hidden=!c; renderSummary(); });
 $("d1").addEventListener("change",renderSummary); $("d2").addEventListener("change",renderSummary);
 $("showall").addEventListener("click",()=>{ S.showAll=!S.showAll; $("showall").setAttribute("aria-pressed",S.showAll); renderSummary(); });
-$("copy").addEventListener("click",async()=>{ const [a,b]=range(); const txt="Takari canal running summary, "+fmtD(a)+" to "+fmtD(b-1)+"\nCanal\tOpened -> Closed\tRunning time\tDays\n"+lastRows.map(r=>r.join("\t")).join("\n");
+$("copy").addEventListener("click",async()=>{ const [a,b]=range(); const txt="Takari canal running summary, "+fmtD(a)+" to "+fmtD(b-1)+"\nCanal\tOpened -> Closed\tRun time\n"+lastRows.map(r=>r.join("\t")).join("\n");
   try{ await navigator.clipboard.writeText(txt); $("copymsg").textContent="Copied. Paste it into Excel or a message."; }
   catch(e){ const ta=$("csv"); ta.hidden=false; ta.value=txt; ta.select(); $("copymsg").textContent="Select and copy the text below."; } });
 
