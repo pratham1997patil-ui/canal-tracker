@@ -162,7 +162,7 @@ summary{cursor:pointer;font-weight:600}
   <header>
     <div class="hgrow">
       <h1>Takari Canal Tracker</h1>
-      <div class="sub">Krishna Koyna LIS, Takari part &middot; <span id="ncanals"></span> canals from the KMZ</div>
+      <div class="sub">Krishna Koyna LIS &middot; Takari &middot; <span id="ncanals"></span> canals</div>
     </div>
     <button type="button" class="hbtn" id="authbtn">Staff sign in</button>
     <div class="live" id="live"><span class="dot"></span><span id="livetxt">Connecting</span></div>
@@ -192,7 +192,7 @@ summary{cursor:pointer;font-weight:600}
         <span><i></i>Closed</span>
         <span><i class="p"></i>Proposed or cancelled</span>
       </div>
-    <p class="hint">Tap a canal to see its status. Zoom in to read village names. If a village name is missing, use the layers button at the top right to switch to the street map, and &#9678; to show where you are.</p>
+    
   </section>
 
   <section class="view" id="v-canals">
@@ -221,7 +221,7 @@ summary{cursor:pointer;font-weight:600}
     </div>
     <div class="stats">
       <div class="stat"><b id="m-can">0</b><span>canals ran</span></div>
-      <div class="stat"><b id="m-days">0</b><span>days water was flowing (any canal)</span></div>
+      <div class="stat"><b id="m-days">0</b><span>days water flowed</span></div>
       <div class="stat"><b id="m-runs">0</b><span>openings</span></div>
     </div>
     <div class="tblwrap">
@@ -230,7 +230,7 @@ summary{cursor:pointer;font-weight:600}
         <tbody id="tb"></tbody>
       </table>
     </div>
-    <p class="cap">Opened and Closed are the times staff logged. Hours is the running time inside the chosen period, and Days is those hours divided by 24 (8.5 hours is 0.35 days). The tile at the top counts time once even when several canals ran together. A canal that is still running is counted up to now.</p>
+    
     <div class="tools" style="margin-top:12px">
       <button type="button" class="btn" id="csvdl">Download CSV</button>
       <button type="button" class="btn" id="copy">Copy table</button>
@@ -252,7 +252,7 @@ summary{cursor:pointer;font-weight:600}
       <label for="lpass">Password<input type="password" id="lpass" autocomplete="current-password" required></label>
       <div class="err" id="lerr"></div>
       <button type="submit" class="btn pri" id="lgo">Sign in</button>
-      <p class="sub">Only accounts created by the site owner can open and close canals. Everyone else can view.</p>
+      
     </form>
   </div>
 </div>
@@ -332,7 +332,7 @@ function status(){
   if(!S.db) return;
   if(!S.loaded) return setLive("","Connecting");
   setLive(S.online?"on":"bad",S.online?"Live":"Offline");
-  setNote(S.online?(S.canWrite?"":"Anyone can view. Staff sign in to open or close canals."):"You are offline. The status shown may be out of date.");
+  setNote(S.online?"":"You are offline. The status shown may be out of date.");
 }
 function connect(){
   const cfg=window.FIREBASE_CONFIG;
