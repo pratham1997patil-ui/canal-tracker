@@ -97,6 +97,15 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 td .lnk{background:none;border:0;padding:0;text-align:left;cursor:pointer;font-weight:600;text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:3px;overflow-wrap:anywhere}
 .bar{position:relative;height:12px;min-width:120px;background:var(--paper);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
 .bar span{position:absolute;top:0;bottom:0;background:var(--water);min-width:2px}
+.runs{min-width:140px}
+.runs div{font-size:13px;line-height:1.35;font-variant-numeric:tabular-nums}
+.runs span{white-space:nowrap}
+.runs div+div{margin-top:4px}
+.runs .runon{color:var(--water);font-weight:600}
+tbody td:first-child{position:sticky;left:0;background:var(--panel);z-index:1;min-width:92px}
+#v-summary table{min-width:0}
+#v-summary th,#v-summary td{padding:9px 6px}
+#v-summary th:first-child,#v-summary td:first-child{padding-left:10px}
 .axis{display:flex;justify-content:space-between;gap:16px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .btn{border:1px solid var(--rule);background:var(--panel);border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:600}
 .btn.pri{background:var(--water);border-color:var(--water);color:#fff}
@@ -217,11 +226,11 @@ summary{cursor:pointer;font-weight:600}
     </div>
     <div class="tblwrap">
       <table>
-        <thead><tr><th>Canal</th><th class="n">Days</th><th class="n">Hours</th><th class="n">Openings</th><th>When <div class="axis"><span id="ax1"></span><span id="ax2"></span></div></th></tr></thead>
+        <thead><tr><th>Canal</th><th>Opened &rarr; Closed</th><th class="n">Hours</th><th class="n">Days</th></tr></thead>
         <tbody id="tb"></tbody>
       </table>
     </div>
-    <p class="cap">Hours is the exact running time inside the chosen period, and Days is those hours divided by 24 (8.5 hours is 0.35 days). The tile at the top counts time once even when several canals ran together. A canal that is still running is counted up to now.</p>
+    <p class="cap">Opened and Closed are the times staff logged. Hours is the running time inside the chosen period, and Days is those hours divided by 24 (8.5 hours is 0.35 days). The tile at the top counts time once even when several canals ran together. A canal that is still running is counted up to now.</p>
     <div class="tools" style="margin-top:12px">
       <button type="button" class="btn" id="csvdl">Download CSV</button>
       <button type="button" class="btn" id="copy">Copy table</button>
@@ -305,7 +314,7 @@ function dur(ms){
   if(ms<2*DAY) return Math.round(ms/HOUR)+" h";
   return Math.floor(ms/DAY)+" d "+Math.round((ms%DAY)/HOUR)+" h";
 }
-const fmtDays=d=>d>=10?d.toFixed(1):d.toFixed(2);
+const fmtDays=d=>d>=1?d.toFixed(1):d.toFixed(2);
 const fmtShort=t=>new Date(t).toLocaleDateString("en-IN",{day:"numeric",month:"short"});
 const fmtDT=t=>new Date(t).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});
 const fmtD=t=>new Date(t).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
@@ -414,12 +423,13 @@ function renderSummary(){
   rows.sort((x,y)=>y.r.ms-x.r.ms);
   $("m-can").textContent=ran; allIv.sort((x,y)=>x[0]-y[0]); let um=0,cur=null; for(const x of allIv){ if(cur&&x[0]<=cur[1]) cur[1]=Math.max(cur[1],x[1]); else { if(cur) um+=cur[1]-cur[0]; cur=[x[0],x[1]]; } } if(cur) um+=cur[1]-cur[0];
   $("m-days").textContent=fmtDays(um/DAY); $("m-runs").textContent=runs;
-  $("ax1").textContent=fmtShort(a); $("ax2").textContent=fmtShort(b-1);
-  lastRows=rows.map(({c,r})=>[c.label,fmtDays(r.days),(r.ms/HOUR).toFixed(1),r.runs]);
+  const runsIn=c=>P(c.id).filter(p=>p.s<b&&(p.e==null?now:p.e)>a);
+  const runTxt=p=>fmtDT(p.s)+" \u2192 "+(p.e==null?"still running":fmtDT(p.e));
+  lastRows=rows.map(({c,r})=>[c.label,runsIn(c).map(runTxt).join("; "),(r.ms/HOUR).toFixed(1),fmtDays(r.days)]);
   $("tb").innerHTML=rows.length?rows.map(({c,r})=>'<tr><td><button type="button" class="lnk" data-id="'+esc(c.id)+'">'+esc(c.label)+'</button></td>'
-    +'<td class="n">'+fmtDays(r.days)+'</td><td class="n">'+(r.ms/HOUR).toFixed(1)+'</td><td class="n">'+r.runs+'</td>'
-    +'<td><div class="bar">'+r.iv.map(([s,e])=>'<span style="left:'+((s-a)/(b-a)*100).toFixed(2)+'%;width:'+((e-s)/(b-a)*100).toFixed(2)+'%"></span>').join("")+'</div></td></tr>').join("")
-    :'<tr><td colspan="5" class="empty">No canal has been logged as running in this period. Open one from the Map or Canals view and it will appear here.</td></tr>';
+    +'<td class="runs">'+(runsIn(c).map(p=>'<div'+(p.e==null?' class="runon"':'')+'><span>'+esc(fmtDT(p.s))+'</span> &rarr; <span>'+(p.e==null?'still running':esc(fmtDT(p.e)))+'</span></div>').join("")||'<span class="sub">Did not run</span>')+'</td>'
+    +'<td class="n">'+(r.ms/HOUR).toFixed(1)+'</td><td class="n">'+fmtDays(r.days)+'</td></tr>').join("")
+    :'<tr><td colspan="4" class="empty">No canal has been logged as running in this period. Open one from the Map or Canals view and it will appear here.</td></tr>';
 }
 
 /* ---------- canal sheet ---------- */
@@ -539,7 +549,7 @@ function sizeMap(){ if(!map) return false; map.invalidateSize(); if(!V.fitted&&m
 function showOnMap(id){ closeSheet(); location.hash="#map"; setTimeout(()=>{ if(!map) return; map.invalidateSize(); map.fitBounds(L.latLngBounds(LY.get(id).ll.flat()),{padding:[40,40],maxZoom:16}); S.sel=id; drawMap(); },60); }
 $("sheet").addEventListener("click",e=>{ if(e.target.id==="showmap"&&S.sel) showOnMap(S.sel); });
 $("csvdl").addEventListener("click",()=>{ const [a,b]=range(); const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
-  const txt="Canal,Days,Hours,Openings\r\n"+lastRows.map(r=>r.map(q).join(",")).join("\r\n");
+  const txt="Canal,Opened -> Closed,Hours,Days\r\n"+lastRows.map(r=>r.map(q).join(",")).join("\r\n");
   const u=URL.createObjectURL(new Blob(["﻿"+txt],{type:"text/csv"})); const l=document.createElement("a"); l.href=u; l.download="canal-summary-"+new Date(a).toISOString().slice(0,10)+"-to-"+new Date(b-1).toISOString().slice(0,10)+".csv"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000); });
 /* ---------- views ---------- */
 function view(){ const h=(location.hash||"").slice(1); return ["map","canals","summary"].includes(h)?h:"map"; }
@@ -553,7 +563,7 @@ document.querySelectorAll(".chip[data-f]").forEach(b=>b.addEventListener("click"
 $("rng").addEventListener("change",()=>{ const c=$("rng").value==="custom"; $("d1").hidden=$("d2").hidden=!c; renderSummary(); });
 $("d1").addEventListener("change",renderSummary); $("d2").addEventListener("change",renderSummary);
 $("showall").addEventListener("click",()=>{ S.showAll=!S.showAll; $("showall").setAttribute("aria-pressed",S.showAll); renderSummary(); });
-$("copy").addEventListener("click",async()=>{ const [a,b]=range(); const txt="Takari canal running summary, "+fmtD(a)+" to "+fmtD(b-1)+"\nCanal\tDays\tHours\tOpenings\n"+lastRows.map(r=>r.join("\t")).join("\n");
+$("copy").addEventListener("click",async()=>{ const [a,b]=range(); const txt="Takari canal running summary, "+fmtD(a)+" to "+fmtD(b-1)+"\nCanal\tOpened -> Closed\tHours\tDays\n"+lastRows.map(r=>r.join("\t")).join("\n");
   try{ await navigator.clipboard.writeText(txt); $("copymsg").textContent="Copied. Paste it into Excel or a message."; }
   catch(e){ const ta=$("csv"); ta.hidden=false; ta.value=txt; ta.select(); $("copymsg").textContent="Select and copy the text below."; } });
 
