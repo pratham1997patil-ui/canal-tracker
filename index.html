@@ -187,7 +187,7 @@ summary{cursor:pointer;font-weight:600}
 .kpi+.kpi{border-left:1px solid var(--rule)}
 .kpi b{display:block;font:600 24px/1.15 var(--display);font-variant-numeric:tabular-nums}
 .kpi span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
-@media(max-width:480px){.kpi{padding:10px}.kpi b{font-size:18px}.sumact{margin-left:0}.tlaxis,.tlrow{grid-template-columns:minmax(64px,24%) 1fr}}
+@media(max-width:480px){.tlaxis,.tlrow{grid-template-columns:minmax(88px,32%) 1fr}}
 .sh{font:600 13px var(--display);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:22px 0 8px}
 .shrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .linkbtn{background:none;border:0;padding:0;color:var(--water);font:500 13px var(--body);text-transform:none;letter-spacing:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
@@ -201,14 +201,17 @@ table.rpt{min-width:0;width:100%}
 .rpt .sys{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:3px}
 /* timeline: one row per canal that ran, a bar for each opening */
 .tlwrap{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 12px 10px}
-.tlaxis,.tlrow{display:grid;grid-template-columns:minmax(70px,26%) 1fr;gap:10px;align-items:center}
+.tlaxis,.tlrow{display:grid;grid-template-columns:minmax(96px,30%) 1fr;gap:10px;align-items:center}
 .tlaxis .tlt{position:relative;height:18px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .tlaxis .tlt span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
 .tlaxis .tlt span.l{transform:none}
-.tlsys{font-size:11px;font-weight:600;color:var(--muted);margin:8px 0 2px;letter-spacing:.03em}
-.tln{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tlbar{position:relative;height:20px;border-left:1px solid var(--rule);background:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--tick) - 1px),var(--rule) calc(var(--tick) - 1px),var(--rule) var(--tick))}
-.tlb{position:absolute;top:5px;height:10px;min-width:4px;border:0;padding:0;border-radius:4px;background:var(--water);cursor:pointer;box-shadow:0 0 0 1px var(--panel)}
+.tlsys{font:600 12px var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:12px 0 2px}
+.tln{display:block;min-width:0;background:none;border:0;padding:4px 0;text-align:left;color:inherit;cursor:pointer;font:inherit}
+.tln b{display:block;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tln small{display:block;font-size:11px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tlwrap .tlrow+.tlrow{border-top:1px solid var(--rule)}
+.tlbar{position:relative;height:30px;border-left:1px solid var(--rule);background:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--tick) - 1px),var(--rule) calc(var(--tick) - 1px),var(--rule) var(--tick))}
+.tlb{position:absolute;top:9px;height:12px;min-width:4px;border:0;padding:0;border-radius:4px;background:var(--water);cursor:pointer;box-shadow:0 0 0 1px var(--panel)}
 .tlb::after{content:"";position:absolute;inset:-7px 0}
 .tlb.on{background:repeating-linear-gradient(135deg,var(--water) 0 5px,var(--water-soft) 5px 7px)}
 .tlb:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
@@ -336,7 +339,6 @@ tr.runsrow td{background:var(--paper);padding:6px 10px 10px 30px;border-top:0}
   </section>
 
   <section class="view" id="v-summary">
-    <div class="printhead" id="printhead"></div>
     <div class="sumbar">
       <div class="fld pfld"><span id="plab">Period</span>
         <div class="pchips" role="group" aria-labelledby="plab" id="pchips"></div>
@@ -346,33 +348,10 @@ tr.runsrow td{background:var(--paper);padding:6px 10px 10px 30px;border-top:0}
         <label class="fld"><span>From</span><input type="date" id="d1"></label>
         <label class="fld"><span>To</span><input type="date" id="d2"></label>
       </div>
-      <div class="sumact noprint">
-        <button type="button" class="btn" id="printbtn">Print / PDF</button>
-        <details class="dl"><summary class="btn">Download</summary>
-          <div class="menu">
-            <button type="button" id="csvdl">Excel – every opening</button>
-            <button type="button" id="csvtot">Excel – total per canal</button>
-            <button type="button" id="copy">Copy as text</button>
-          </div>
-        </details>
-      </div>
     </div>
-    <p class="sub copymsg noprint" id="copymsg" aria-live="polite"></p>
-    <textarea id="csv" hidden readonly aria-label="Summary as text"></textarea>
     <div class="ptitle"><h2 id="ptitle"></h2><p id="rngtxt"></p></div>
-    <div class="kpis">
-      <div class="kpi"><b id="m-ica">0</b><span>ha ICA irrigated</span></div>
-      <div class="kpi"><b id="m-can">0</b><span id="m-runs">canals run</span></div>
-      <div class="kpi"><b id="m-days">0</b><span>water flowing</span></div>
-    </div>
-    <h3 class="sh">By system</h3>
-    <div class="tblwrap"><table class="rpt" id="systbl"></table></div>
-    <h3 class="sh">Rotation</h3>
     <div class="tlwrap" id="tl"></div>
-    <p class="sub tltip noprint" id="tltip" aria-live="polite"></p>
-    <h3 class="sh shrow">Canal details <button type="button" class="linkbtn noprint" id="showall" aria-pressed="false">Show canals that did not run</button></h3>
-    <div id="sumgroups"></div>
-    <p class="cap foot" id="sumnote"></p>
+    <p class="sub tltip" id="tltip" aria-live="polite"></p>
   </section>
 </div>
 
@@ -693,30 +672,8 @@ const shortSys=g=>g.replace("Sonsal Left Bank Canal","Sonsal LBC").replace("Mohi
 const dash="–";
 function renderSummary(){
   const R=SUM=summarise();
-  $("ptitle").textContent=R.name; $("rngtxt").textContent=datesText(R);
-  $("m-ica").textContent=fmtHa(R.ica); $("m-can").textContent=R.ran; $("m-runs").textContent=(R.ran===1?"canal run":"canals run")+(R.opens?" · "+R.opens+(R.opens===1?" opening":" openings"):"");
-  $("m-days").textContent=R.ms?fmtRun(R.ms):"0";
-  /* by system */
-  $("systbl").innerHTML='<thead><tr><th>System</th><th class="n">Canals</th><th class="n">ICA (ha)</th><th class="n">Water flowing</th></tr></thead><tbody>'
-    +R.sys.map(x=>'<tr'+(x.ran?"":' class="none"')+'><td>'+(x.ran?'<button type="button" class="sys" data-jump="'+esc(x.g)+'">'+esc(x.g)+'</button>':esc(x.g))+'</td><td class="n">'+(x.ran||dash)+'</td><td class="n">'+(x.ran?fmtHa(x.ica):dash)+'</td><td class="n">'+(x.ran?esc(fmtRun(x.ms)):dash)+'</td></tr>').join("")
-    +'<tr class="tot"><td>Total</td><td class="n">'+R.ran+'</td><td class="n">'+fmtHa(R.ica)+'</td><td class="n">'+(R.ms?esc(fmtRun(R.ms)):dash)+'</td></tr></tbody>';
+  $("ptitle").textContent=R.name; $("rngtxt").textContent=datesText(R)+(R.ran?" \u00b7 "+R.ran+(R.ran===1?" canal ran":" canals ran"):"");
   renderTimeline(R);
-  /* canal details, one block per system that ran */
-  let h="";
-  for(const x of R.sys){ if(!x.rows.length) continue;
-    const ex=!SUMCLOSED.has(x.g)||!!S.printAll;
-    h+='<div class="dsys" id="d-'+esc(x.g.replace(/\W+/g,"-"))+'"><button type="button" class="dhead" data-sg="'+esc(x.g)+'" aria-expanded="'+ex+'"><span class="chev" aria-hidden="true"></span><span class="gname">'+esc(x.g)+'</span><span class="gsum">'+(x.ran?x.ran+(x.ran===1?" canal":" canals")+" · "+fmtHa(x.ica)+" ha":"did not run")+'</span></button>';
-    if(ex) h+='<div class="tblwrap"><table class="rpt fixed"><colgroup><col class="c1"><col class="c2"><col class="c3"></colgroup><thead><tr><th>Canal</th><th class="n">ICA (ha)</th><th class="n">Run time</th></tr></thead><tbody>'
-      +x.rows.map(({c,r,list})=>{ const open=SUMROWS.has(c.id)||!!S.printAll, on=list.some(p=>p.e==null), ch=c.info&&c.info.ch?"Ch "+c.info.ch:"";
-        let t='<tr'+(on?' class="open-now"':'')+'><td>'+(list.length?'<button type="button" class="rx" data-rx="'+esc(c.id)+'" aria-expanded="'+open+'"><span class="chev" aria-hidden="true"></span><span><b>'+esc(c.short)+'</b>'+(ch?'<small>'+esc(ch)+'</small>':'')+'</span></button>':'<span class="rx"><span><b>'+esc(c.short)+'</b>'+(ch?'<small>'+esc(ch)+'</small>':'')+'</span></span>')+'</td>'
-          +'<td class="n">'+(icaOf(c)?fmtHa(icaOf(c)):dash)+'</td><td class="n">'+(r.ms?esc(fmtRun(r.ms))+'<small class="rsub">'+r.runs+(r.runs===1?" opening":" openings")+(on?' \u00b7 <span class="sat">running</span>':"")+'</small>':dash)+'</td></tr>';
-        if(open&&list.length) t+='<tr class="runsrow"><td colspan="3"><ul class="runlist">'+list.map(p=>'<li'+(p.e==null?' class="rnow"':'')+'><span>'+esc(fmtDT(p.s))+(p.s<R.a?"*":"")+' → '+(p.e==null?"still running":esc(fmtDT(p.e)))+'</span><span>'+esc(fmtRun((p.e==null?R.now:p.e)-p.s))+'</span></li>').join("")+'</ul></td></tr>';
-        return t; }).join("")+'</tbody></table></div>';
-    h+='</div>'; }
-  $("sumgroups").innerHTML=h||'<div class="empty">No canal has been logged as running in this period.</div>';
-  const before=R.sys.some(x=>x.rows.some(y=>y.list.some(p=>p.s<R.a)));
-  $("sumnote").textContent=(before?"* Opened before the period; only the time inside the period is counted. ":"")+"ICA is counted once: a minor's ICA is left out when its DY also ran. Seasons: "
-    +SEASONS.map((x,i)=>{ const n=SEASONS[(i+1)%SEASONS.length], e=new Date(2001,n.m-1,n.d-1), mon=d=>d.toLocaleDateString("en-IN",{month:"short"}); return x.name+" "+x.d+" "+mon(new Date(2001,x.m-1,1))+" – "+(e.getMonth()===1&&e.getDate()>=28?"end Feb":e.getDate()+" "+mon(e)); }).join(", ")+". A season is named by the year it starts: Rabi 2025 runs from 15 Oct 2025 to the end of Feb 2026.";
 }
 function renderTimeline(R){
   const span=R.b-R.a, days=span/DAY, step=[1,2,7,14,30,61,91,182].find(x=>days/x<=6)||365;
@@ -728,23 +685,15 @@ function renderTimeline(R){
   let n=0;
   for(const x of R.sys){ const rows=x.rows.filter(y=>y.r.ms>0); if(!rows.length) continue;
     h+='<div class="tlsys">'+esc(shortSys(x.g))+'</div>';
-    for(const {c,list} of rows.slice().sort((p,q)=>p.list[0].s-q.list[0].s)){ n++;
-      h+='<div class="tlrow"><span class="tln" title="'+esc(c.label)+'">'+esc(c.short)+'</span><div class="tlbar" style="--tick:'+tickW+';background-position-x:'+pct(ticks[0]||R.a)+'">'
+    for(const {c,r,list} of rows.slice().sort((p,q)=>p.list[0].s-q.list[0].s)){ n++; const on=list.some(p=>p.e==null);
+      h+='<div class="tlrow"><button type="button" class="tln" data-id="'+esc(c.id)+'" title="'+esc(c.label)+'"><b>'+esc(c.short)+'</b><small>'+esc(fmtRun(r.ms))+(on?' \u00b7 <span class="sat">running</span>':'')+'</small></button><div class="tlbar" style="--tick:'+tickW+';background-position-x:'+pct(ticks[0]||R.a)+'">'
         +list.map(p=>{ const s=Math.max(p.s,R.a), e=Math.min(p.e==null?R.now:p.e,R.b), tip=c.label+": "+fmtDT(p.s)+" → "+(p.e==null?"still running":fmtDT(p.e))+" ("+fmtRun((p.e==null?R.now:p.e)-p.s)+")";
           return '<button type="button" class="tlb'+(p.e==null?" on":"")+'" style="left:'+pct(s)+';width:'+((e-s)/span*100).toFixed(3)+'%" data-tip="'+esc(tip)+'" title="'+esc(tip)+'" aria-label="'+esc(tip)+'"></button>'; }).join("")
         +'</div></div>'; } }
-  $("tl").innerHTML=n?h:'<div class="empty">Nothing ran in this period.</div>';
-  $("tltip").textContent=n?"Tap a bar for its times. Striped bars are still running.":"";
+  $("tl").innerHTML=n?h:'<div class="empty">No canal ran in this period.</div>';
+  $("tltip").textContent=n?"Tap a bar for its times, or a canal name to open it. Striped bars are still running.":"";
 }
 $("tl").addEventListener("click",e=>{ const t=e.target.closest(".tlb"); if(t) $("tltip").textContent=t.dataset.tip; });
-$("v-summary").addEventListener("click",e=>{
-  const g=e.target.closest("[data-sg]"), x=e.target.closest("[data-rx]"), j=e.target.closest("[data-jump]"); let sel=null;
-  if(j){ SUMCLOSED.delete(j.dataset.jump); renderSummary(); const el=$("d-"+j.dataset.jump.replace(/\W+/g,"-")); if(el){ el.scrollIntoView({behavior:"smooth",block:"start"}); el.querySelector(".dhead").focus({preventScroll:true}); } return; }
-  if(g){ const k=g.dataset.sg; SUMCLOSED.has(k)?SUMCLOSED.delete(k):SUMCLOSED.add(k); sel='[data-sg="'+CSS.escape(k)+'"]'; }
-  else if(x){ const k=x.dataset.rx; SUMROWS.has(k)?SUMROWS.delete(k):SUMROWS.add(k); sel='[data-rx="'+CSS.escape(k)+'"]'; }
-  else return;
-  renderSummary(); const f=$("sumgroups").querySelector(sel); if(f) f.focus();
-});
 
 /* ---------- canal sheet ---------- */
 function openSheet(id){ S.sel=id; S.err=""; S.confirm=null; $("scrim").classList.add("on"); renderSheet(); drawMap(); const x=$("sheet").querySelector(".x"); if(x) x.focus(); }
@@ -990,24 +939,6 @@ $("mfit").addEventListener("click",()=>{ V.grp=""; V.run=false; $("mgrp").value=
 function sizeMap(){ if(!map) return false; map.invalidateSize(); if(!V.fitted&&map.getSize().x>0){ map.fitBounds(bounds,{padding:[12,12]}); V.fitted=true; } return true; }
 function showOnMap(id){ closeSheet(); location.hash="#map"; setTimeout(()=>{ if(!map) return; map.invalidateSize(); map.fitBounds(L.latLngBounds(LY.get(id).ll.flat()),{padding:[40,40],maxZoom:16}); S.sel=id; drawMap(); },60); }
 $("sheet").addEventListener("click",e=>{ if(e.target.id==="showmap"&&S.sel) showOnMap(S.sel); });
-/* ---------- downloads, copy and print ---------- */
-const xdt=t=>{ const d=new Date(t), z=n=>String(n).padStart(2,"0"); return z(d.getDate())+"-"+z(d.getMonth()+1)+"-"+d.getFullYear()+" "+z(d.getHours())+":"+z(d.getMinutes()); };
-function saveCsv(kind,head,rows){ const R=SUM, q=v=>{ v=v==null?"":String(v); return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
-  const txt=[head,...rows].map(r=>r.map(q).join(",")).join("\r\n");
-  const u=URL.createObjectURL(new Blob(["﻿"+txt],{type:"text/csv"})), l=document.createElement("a");
-  l.href=u; l.download="takari-canals-"+kind+"-"+xdt(R.a).slice(0,10)+"-to-"+xdt(R.b-1).slice(0,10)+".csv"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000); }
-const meta=c=>[c.grp,c.label,c.name,icaOf(c)||"",c.info&&c.info.cca!=null?c.info.cca:"",c.info&&c.info.ch?c.info.ch:(c.off?kmCh(c.off):"")];
-$("csvdl").addEventListener("click",()=>{ const R=SUM, out=[];
-  for(const x of R.sys) for(const {c,list} of x.rows) for(const p of list){ const e=p.e==null?R.now:p.e, inn=Math.min(e,R.b)-Math.max(p.s,R.a);
-    out.push([...meta(c),xdt(p.s),p.e==null?"still running":xdt(p.e),(inn/HOUR).toFixed(2),fmtRun(inn),p.s<R.a?"yes":""]); }
-  saveCsv("openings",["System","Canal","Name in KMZ","ICA (ha)","CCA (ha)","Offtake chainage","Opened","Closed","Hours in period","Run time in period","Opened before period"],out); });
-$("csvtot").addEventListener("click",()=>{ const R=SUM, out=[];
-  for(const x of R.sys) for(const {c,r} of x.rows) out.push([...meta(c),r.runs,(r.ms/HOUR).toFixed(2),r.ms?fmtRun(r.ms):"",(icaOf(c)*r.ms/DAY).toFixed(1)]);
-  saveCsv("totals",["System","Canal","Name in KMZ","ICA (ha)","CCA (ha)","Offtake chainage","Openings","Hours in period","Run time in period","ICA x days (ha-days)"],out); });
-function printHead(){ const R=SUM; $("printhead").innerHTML='<h1>Takari Canal Running Report</h1><div>Krishna Koyna Lift Irrigation Scheme, Takari</div><div><b>Period:</b> '+esc(periodText(R))+' &nbsp; <b>Printed:</b> '+esc(fmtDT(Date.now()))+'</div>'; }
-$("printbtn").addEventListener("click",()=>window.print());
-window.addEventListener("beforeprint",()=>{ S.printAll=true; renderSummary(); printHead(); });
-window.addEventListener("afterprint",()=>{ S.printAll=false; renderSummary(); });
 /* ---------- views ---------- */
 function view(){ const h=(location.hash||"").slice(1); return ["map","canals","summary"].includes(h)?h:"map"; }
 function showView(){ const v=view(); for(const n of ["map","canals","summary"]) $("v-"+n).classList.toggle("on",n===v);
@@ -1019,16 +950,6 @@ $("q").addEventListener("input",renderList);
 document.querySelectorAll(".chip[data-f]").forEach(b=>b.addEventListener("click",()=>{ S.filter=b.dataset.f; document.querySelectorAll(".chip[data-f]").forEach(x=>x.setAttribute("aria-pressed",x===b)); renderList(); }));
 $("rng").addEventListener("change",()=>setPeriod($("rng").value,true));
 $("d1").addEventListener("change",renderSummary); $("d2").addEventListener("change",renderSummary);
-$("showall").addEventListener("click",()=>{ S.showAll=!S.showAll; $("showall").setAttribute("aria-pressed",S.showAll); $("showall").textContent=S.showAll?"Hide canals that did not run":"Show canals that did not run"; renderSummary(); });
-/* close the Download menu after a choice */
-document.querySelectorAll(".dl .menu button").forEach(b=>b.addEventListener("click",()=>b.closest("details").open=false));
-$("copy").addEventListener("click",async()=>{ const R=SUM; let txt="Takari canal running summary, "+periodText(R)+"\n";
-  txt+="Canals ran "+R.ran+", ICA "+fmtHa(R.ica)+" ha, water flowing "+(R.ms?fmtRun(R.ms):"0")+", openings "+R.opens+"\n";
-  for(const x of R.sys){ if(!x.rows.length) continue; txt+="\n"+x.g+" ("+(x.ran?x.ran+" canals, "+fmtHa(x.ica)+" ha, "+fmtRun(x.ms):"did not run")+")\nCanal\tICA ha\tOpened -> Closed\tRun time\n";
-    for(const {c,r,list} of x.rows) txt+=c.short+"\t"+(icaOf(c)||"")+"\t"+(list.map(p=>fmtDT(p.s)+" -> "+(p.e==null?"still running":fmtDT(p.e))).join("; ")||"did not run")+"\t"+(r.ms?fmtRun(r.ms):"")+"\n"; }
-  try{ await navigator.clipboard.writeText(txt); $("copymsg").textContent="Copied. Paste it into Excel or a message."; }
-  catch(e){ const ta=$("csv"); ta.hidden=false; ta.value=txt; ta.select(); $("copymsg").textContent="Select and copy the text below."; } });
-
 initMap(); showView(); renderAll(); connect();
 setInterval(()=>{ if(!document.hidden&&!S.sel){ renderStats(); renderList(); } },60000);
 </script>
