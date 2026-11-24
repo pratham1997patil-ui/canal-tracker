@@ -159,6 +159,21 @@ summary{cursor:pointer;font-weight:600}
 .locbtn{width:34px;height:34px;border-radius:4px;border:2px solid rgba(0,0,0,.2);background:#fff;color:#111;font-size:18px;cursor:pointer;line-height:1}
 .scrim{z-index:2000}
 .acts{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:8px 0}
+/* canals tab: tap a system to see its DYs, tap "Show" on a DY to see its minors */
+.ghead{display:flex;align-items:center;gap:12px;width:100%;margin:10px 0 0;padding:12px 14px;min-height:60px;background:var(--panel);border:1px solid var(--rule);border-radius:8px;cursor:pointer;text-align:left}
+.ghead[aria-expanded="true"]{border-radius:8px 8px 0 0}
+.ghead[aria-expanded="true"]+.rows{border-radius:0 0 8px 8px;border-top:0}
+.ghead:disabled{cursor:default}
+.ghead .gname{flex:1;min-width:0;font:700 19px/1.15 var(--display);letter-spacing:.01em}
+.ghead .gcount{flex:none;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.ghead.live .gcount{color:var(--water);font-weight:600}
+.chev{flex:none;width:9px;height:9px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);margin:0 3px;transition:transform .15s}
+[aria-expanded="true"]>.chev{transform:rotate(45deg)}
+.row{cursor:default;gap:8px;padding-top:0;padding-bottom:0}
+.rmain{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;border:0;padding:10px 0;min-height:52px;text-align:left;cursor:pointer;color:inherit}
+.rexp{flex:none;align-self:center;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--paper);border-radius:999px;padding:6px 10px;min-height:36px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums}
+.rexp .chev{width:7px;height:7px;margin:0 2px}
+.rexp.live{color:var(--water);border-color:var(--water)}
 /* map tools */
 #mform{margin-bottom:6px}
 #mform select{flex:0 1 220px}
@@ -346,6 +361,12 @@ const CANALS=window.CANALS_RAW.map(c=>{
 /* the KMZ splits some canals into several lines with the same name: number them as parts */
 { const seen=new Map(); for(const c of CANALS) seen.set(c.label,(seen.get(c.label)||0)+1);
   const k=new Map(); for(const c of CANALS) if(seen.get(c.label)>1){ const i=(k.get(c.label)||0)+1; k.set(c.label,i); c.label+=" (part "+i+")"; c.short+=" (part "+i+")"; } }
+/* tree: a canal's parent is the nearest canal above it in its system that is one level less indented */
+{ const st=[]; let g=null;
+  for(const c of CANALS){ if(c.grp!==g){ g=c.grp; st.length=0; }
+    st.length=c.depth; c.parent=c.depth&&st[c.depth-1]||null; c.kids=[]; if(c.parent) c.parent.kids.push(c); st[c.depth]=c;
+    c.leaf=c.short.split("/").pop(); } }
+const below=c=>c.kids.flatMap(k=>[k,...below(k)]);
 const BYID=new Map(CANALS.map(c=>[c.id,c]));
 document.getElementById("ncanals").textContent=CANALS.length;
 
@@ -449,24 +470,46 @@ function renderStats(){
 }
 
 /* ---------- list ---------- */
-function renderList(){
-  const q=$("q").value.trim().toLowerCase(), now=Date.now(); let html="",grp=null,count=0,buf="",gopen=0,gn=0;
-  const flush=()=>{ if(grp!==null&&buf) html+='<div class="grp"><span>'+esc(grp)+'</span><span>'+gopen+' of '+gn+' running</span></div><div class="rows">'+buf+'</div>'; buf="";gopen=0;gn=0; };
-  for(const c of CANALS){
-    const op=openPeriod(P(c.id));
-    if(q&&![c.label,c.name,c.grp,c.remark].some(t=>(t||"").toLowerCase().includes(q))) continue;
-    if(S.filter==="open"&&!op) continue;
-    if(S.filter==="closed"&&op) continue;
-    if(c.grp!==grp){ flush(); grp=c.grp; }
-    gn++; if(op) gopen++; count++;
-    const meta=[c.type,c.ica?c.ica+" ha":"",c.dead?(c.status==="Proposed"?"proposed":"cancelled"):""].filter(Boolean).join(" \u00b7 ");
-    buf+='<button type="button" class="row'+(op?" open":"")+'" data-id="'+esc(c.id)+'" style="padding-left:'+(12+Math.min(c.depth,3)*14)+'px">'
-      +'<span class="nm"><b>'+esc(c.short)+'</b><small>'+esc(meta)+'</small></span>'
-      +(op?'<span class="pill open">Running '+esc(dur(now-op.s))+'</span>':'<span class="pill'+(c.dead?" na":"")+'">Closed</span>')+'</button>';
-  }
-  flush();
-  $("list").innerHTML=count?html:'<div class="empty">No canals match. Clear the search or choose All.</div>';
+/* which systems and DYs are opened is remembered on this device */
+const OPEN={g:new Set(),r:new Set()};
+try{ const v=JSON.parse(localStorage.getItem("canalsOpen")||"null"); if(v){ (v.g||[]).forEach(x=>OPEN.g.add(x)); (v.r||[]).forEach(x=>OPEN.r.add(x)); } }catch(e){}
+const saveOpen=()=>{ try{ localStorage.setItem("canalsOpen",JSON.stringify({g:[...OPEN.g],r:[...OPEN.r]})); }catch(e){} };
+function rowHtml(c,flat,now){
+  const op=openPeriod(P(c.id));
+  const meta=[c.type,c.ica?c.ica+" ha":"",c.dead?(c.status==="Proposed"?"proposed":"cancelled"):""].filter(Boolean).join(" \u00b7 ");
+  let x="";
+  if(!flat&&c.kids.length){ const d=below(c), r=d.filter(k=>openPeriod(P(k.id))).length, ex=OPEN.r.has(c.id);
+    x='<button type="button" class="rexp'+(r?" live":"")+'" data-x="'+esc(c.id)+'" aria-expanded="'+ex+'" aria-label="'+(ex?"Hide":"Show")+" the "+d.length+" canals under "+esc(c.short)+(r?", "+r+" running":"")+'">'
+      +'<span class="chev" aria-hidden="true"></span>'+(ex?"Hide":"Show "+d.length)+(r?" \u00b7 "+r+" running":"")+'</button>'; }
+  return '<div class="row'+(op?" open":"")+'" style="padding-left:'+(12+Math.min(c.depth,3)*16)+'px">'
+    +'<button type="button" class="rmain" data-id="'+esc(c.id)+'"><span class="nm"><b>'+esc(flat?c.short:c.leaf)+'</b><small>'+esc(meta)+'</small></span>'
+    +(op?'<span class="pill open">Running '+esc(dur(now-op.s))+'</span>':'<span class="pill'+(c.dead?" na":"")+'">Closed</span>')+'</button>'+x+'</div>';
 }
+function renderList(){
+  const q=$("q").value.trim().toLowerCase(), now=Date.now(), flat=!!q||S.filter!=="all";
+  const on=c=>!!openPeriod(P(c.id));
+  const match=c=>(!q||[c.label,c.name,c.grp,c.remark].some(t=>(t||"").toLowerCase().includes(q)))&&(S.filter==="all"||(S.filter==="open")===on(c));
+  let html="",found=0;
+  for(const g of GORDER){
+    const all=CANALS.filter(c=>c.grp===g), run=all.filter(on).length; let rows=null;
+    if(flat){ rows=all.filter(match); if(!rows.length) continue; found+=rows.length; }
+    const ex=flat||OPEN.g.has(g);
+    html+='<button type="button" class="ghead'+(run?" live":"")+'" data-g="'+esc(g)+'" aria-expanded="'+ex+'"'+(flat?" disabled":"")+'>'
+      +'<span class="chev" aria-hidden="true"></span><span class="gname">'+esc(g)+'</span>'
+      +'<span class="gcount">'+(flat?rows.length+" found<br>":"")+run+" of "+all.length+" running</span></button>";
+    if(!ex) continue;
+    if(!flat){ rows=[]; const walk=c=>{ rows.push(c); if(OPEN.r.has(c.id)) c.kids.forEach(walk); }; all.filter(c=>!c.parent).forEach(walk); }
+    html+='<div class="rows">'+rows.map(c=>rowHtml(c,flat,now)).join("")+'</div>';
+  }
+  $("list").innerHTML=flat&&!found?'<div class="empty">'+(q?"No canals match. Clear the search or choose All.":S.filter==="open"?"No canal is running right now.":"Every canal is running.")+'</div>':html;
+}
+$("list").addEventListener("click",e=>{
+  const g=e.target.closest("[data-g]"), x=e.target.closest("[data-x]"); let sel=null;
+  if(g&&!g.disabled){ const k=g.dataset.g; OPEN.g.has(k)?OPEN.g.delete(k):OPEN.g.add(k); sel='[data-g="'+CSS.escape(k)+'"]'; }
+  else if(x){ const k=x.dataset.x; OPEN.r.has(k)?OPEN.r.delete(k):OPEN.r.add(k); sel='[data-x="'+CSS.escape(k)+'"]'; }
+  else return;
+  saveOpen(); renderList(); const f=$("list").querySelector(sel); if(f) f.focus();
+});
 
 /* ---------- summary ---------- */
 function range(){
