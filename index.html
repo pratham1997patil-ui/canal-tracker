@@ -285,16 +285,18 @@ summary{cursor:pointer;font-weight:600}
 <script>
 "use strict";
 /* ---------- canal catalogue ---------- */
+/* Five systems. The KMZ pipe pieces named "Mr 5", "SMr 1", "Sub Main 2", "450MM RCC" ... all join
+   "Sonsal and Shirasgaon PDN from Stage 4" next to Sonsal LBC, so they belong to Sonsal.
+   DY-50/53/55 pipelines and the bare "Minor-3", "Sub Minor-1" ... lie on the main canal. */
 function groupOf(c){
   const n=c.name;
-  if(/Sonsal LBC/i.test(n)) return "Sonsal LBC";
-  if(/Chinchani/i.test(n)) return "Chinchani Ambak Feeder Canal";
-  if(/Mohite/i.test(n)) return "Mohite-Vadgaon distributary";
-  if(c.cons==="Pipe Distribution Network"||/PDN|^(S?Mr|M) ?\d|^Sub Main|^Main Canal \d|^\d+MM/i.test(n)) return "Pipe distribution network";
-  if(/Takari Main Canal|D\.?\s?Y|Distribut/i.test(n)) return "Takari Main Canal";
-  return "Other canals";
+  if(/Dudhari/i.test(n)) return "Takari-Dudhari Pipeline";
+  if(/Sonsal/i.test(n)||/^(S?Mr|M) ?\d|^Sub Main|^Main Canal \d|^\d+MM/i.test(n)) return "Sonsal Left Bank Canal";
+  if(/Mohite/i.test(n)) return "Mohite-Vadgaon Vitarika";
+  if(/Chinchani/i.test(n)) return "Chinchani Feeder Canal";
+  return "Takari Main Canal";
 }
-const GORDER=["Takari Main Canal","Sonsal LBC","Chinchani Ambak Feeder Canal","Mohite-Vadgaon distributary","Pipe distribution network","Other canals"];
+const GORDER=["Takari Main Canal","Sonsal Left Bank Canal","Mohite-Vadgaon Vitarika","Takari-Dudhari Pipeline","Chinchani Feeder Canal"];
 function sortKey(c){
   const m=c.name.match(/D\.?\s?Y\.?\s?(?:No\.?)?\s?-?\s?(\d+)/i);
   return [m?+m[1]:(/Main Canal$|LBC$|Feeder Canal$/.test(c.name)?-1:9999), c.name.replace(/^(Takari Main Canal|Sonsal LBC)\//,"")];
