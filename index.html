@@ -160,43 +160,89 @@ summary{cursor:pointer;font-weight:600}
 .mbtns{display:flex;flex-direction:column;gap:6px}
 .mbtn{min-width:34px;height:34px;padding:0 9px;border-radius:4px;border:2px solid rgba(0,0,0,.2);background:#fff;color:#111;font:600 12px var(--body);cursor:pointer;white-space:nowrap}
 .mbtn[aria-pressed="true"]{background:#111;color:#fff}
-.stats4{grid-template-columns:repeat(2,1fr)}
-@media(min-width:640px){.stats4{grid-template-columns:repeat(4,1fr)}}
-.rngtxt{margin:-4px 0 10px}
-.sh{font:600 14px var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:18px 0 6px}
+/* summary report */
+.sumbar{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-end;margin-bottom:6px}
+.fld{display:grid;gap:3px;font-size:12px;color:var(--muted)}
+.fld select,.fld input{background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:8px;padding:9px 12px;font-size:15px;min-width:0}
+.fld select{min-width:210px}
+.dates{display:flex;gap:10px}.dates[hidden]{display:none}
+.sumact{display:flex;gap:8px;margin-left:auto;align-items:flex-end}
+.dl{position:relative;border:0;padding:0}
+.dl summary{list-style:none}.dl summary::-webkit-details-marker{display:none}
+.dl summary::after{content:"";display:inline-block;width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:0 0 3px 8px}
+.dl .menu{position:absolute;right:0;top:calc(100% + 4px);z-index:5;background:var(--panel);border:1px solid var(--rule);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.15);padding:4px;min-width:220px;display:grid}
+.dl .menu button{background:none;border:0;text-align:left;padding:10px 12px;border-radius:6px;cursor:pointer}
+.dl .menu button:hover{background:var(--paper)}
+.copymsg{margin:0;min-height:0}
+.ptitle{margin:14px 0 12px;padding-bottom:10px;border-bottom:1px solid var(--rule)}
+.ptitle h2{font:700 24px/1.15 var(--display);margin:0}
+.ptitle p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--rule);border-radius:8px;background:var(--panel);margin-bottom:6px}
+.kpi{padding:12px 14px;min-width:0}
+.kpi+.kpi{border-left:1px solid var(--rule)}
+.kpi b{display:block;font:600 24px/1.15 var(--display);font-variant-numeric:tabular-nums}
+.kpi span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+@media(max-width:480px){.kpi{padding:10px}.kpi b{font-size:18px}.sumact{margin-left:0}.tlaxis,.tlrow{grid-template-columns:minmax(64px,24%) 1fr}}
+.sh{font:600 13px var(--display);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:22px 0 8px}
+.shrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.linkbtn{background:none;border:0;padding:0;color:var(--water);font:500 13px var(--body);text-transform:none;letter-spacing:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+table.rpt{min-width:0;width:100%}
+.rpt th,.rpt td{padding:9px 10px}
+.rpt th{font:600 12px var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.rpt td.n,.rpt th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rpt tbody td:first-child{position:static;min-width:0}
+.rpt tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
+.rpt tr.none td{color:var(--muted)}
+.rpt .sys{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:3px}
 /* timeline: one row per canal that ran, a bar for each opening */
-.tlwrap{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 10px 6px}
-.tlaxis,.tlrow{display:grid;grid-template-columns:minmax(78px,30%) 1fr;gap:8px;align-items:center}
-.tlaxis .tlt{position:relative;height:16px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tlwrap{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 12px 10px}
+.tlaxis,.tlrow{display:grid;grid-template-columns:minmax(70px,26%) 1fr;gap:10px;align-items:center}
+.tlaxis .tlt{position:relative;height:18px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .tlaxis .tlt span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
-.tlaxis .tlt span.l{transform:none}.tlaxis .tlt span.r{transform:translateX(-100%)}
-.tlsys{font:600 12px var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:8px 0 2px}
+.tlaxis .tlt span.l{transform:none}
+.tlsys{font-size:11px;font-weight:600;color:var(--muted);margin:8px 0 2px;letter-spacing:.03em}
 .tln{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tlbar{position:relative;height:22px;border-left:1px solid var(--rule);border-right:1px solid var(--rule);background:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--tick) - 1px),var(--rule) calc(var(--tick) - 1px),var(--rule) var(--tick))}
-.tlb{position:absolute;top:5px;height:12px;min-width:4px;border:0;padding:0;border-radius:4px;background:var(--water);cursor:pointer;box-shadow:0 0 0 1px var(--panel)}
-.tlb::after{content:"";position:absolute;inset:-6px 0}
+.tlbar{position:relative;height:20px;border-left:1px solid var(--rule);background:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--tick) - 1px),var(--rule) calc(var(--tick) - 1px),var(--rule) var(--tick))}
+.tlb{position:absolute;top:5px;height:10px;min-width:4px;border:0;padding:0;border-radius:4px;background:var(--water);cursor:pointer;box-shadow:0 0 0 1px var(--panel)}
+.tlb::after{content:"";position:absolute;inset:-7px 0}
 .tlb.on{background:repeating-linear-gradient(135deg,var(--water) 0 5px,var(--water-soft) 5px 7px)}
 .tlb:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
-.tltip{min-height:1.4em;margin:6px 0 0}
-.gsum{display:block;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right;line-height:1.35}
-.ghead.live .gsum{color:var(--water)}
-#sumgroups .tblwrap{border-top:0;border-radius:0 0 8px 8px}
-.ical{display:block;color:var(--muted);font-size:12px;font-weight:400}
-.before{display:inline-block;font-size:11px;font-weight:600;color:var(--warn);border:1px solid var(--warn);border-radius:4px;padding:0 4px;margin-right:4px}
+.tltip{min-height:1.4em;margin:6px 0 0;font-size:12px}
+/* canal details */
+.dsys{margin-top:10px}
+.dhead{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;border-bottom:1px solid var(--rule);padding:10px 2px;cursor:pointer;text-align:left;color:var(--ink)}
+.dhead .gname{flex:1;font:600 17px var(--display)}
+.dhead .gsum{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dsys .tblwrap{margin-top:8px}
+.rx{display:flex;align-items:center;gap:8px;background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%}
+.rx .chev{width:7px;height:7px}
+.rx b{font-weight:600}
+.rx small{display:block;color:var(--muted);font-size:12px;font-weight:400}
+tr.open-now td:first-child{box-shadow:inset 3px 0 0 var(--water)}
+tr.runsrow td{background:var(--paper);padding:6px 10px 10px 30px;border-top:0}
+.runlist{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:13px;font-variant-numeric:tabular-nums}
+.runlist li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px}
+.rsub{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.rpt td.n{vertical-align:top}
+.rpt.fixed{table-layout:fixed}.rpt.fixed .c1{width:auto}.rpt.fixed .c2{width:22%}.rpt.fixed .c3{width:34%}
+@media(min-width:700px){.rpt.fixed .c2{width:18%}.rpt.fixed .c3{width:24%}}
+.rx span{min-width:0;overflow-wrap:anywhere}
+.runlist .rnow{color:var(--water);font-weight:600}
+.foot{font-size:12px;margin-top:16px}
 .printhead{display:none}
 @media print{
   body{background:#fff;color:#000;font-size:12px}
   .wrap{max-width:none;padding:0}
-  header,.wrap>.stats,nav,#note,.noprint,#v-summary>.tools,.scrim,.view:not(#v-summary),#rngtxt,#tltip{display:none!important}
+  header,.wrap>.stats,nav,#note,.noprint,.sumbar,.scrim,.view:not(#v-summary),.ptitle,#tltip,.rx .chev,.dhead .chev{display:none!important}
   #v-summary{display:block!important}
   .printhead{display:block;margin:0 0 10px}
   .printhead h1{font-size:20px;margin:0 0 2px}
-  .ghead,.tlrow,tr{break-inside:avoid}
-  .ghead{break-after:avoid}
+  .dhead,.tlrow,tr{break-inside:avoid}
+  .dhead,.sh{break-after:avoid}
+  .dl .menu{display:none}
   .tblwrap{overflow:visible}
   tbody td:first-child{position:static}
-  .tlb,.pill,.stat{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .ghead .chev{display:none}
+  .tlb,.kpis{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 .lines-off .leaflet-overlay-pane,.lines-off .leaflet-tooltip-pane{display:none}
 .scrim{z-index:2000}
@@ -286,43 +332,39 @@ summary{cursor:pointer;font-weight:600}
 
   <section class="view" id="v-summary">
     <div class="printhead" id="printhead"></div>
-    <div class="tools">
-      <select id="rng" aria-label="Period">
-        <option value="today">Today</option>
-        <option value="yesterday">Yesterday</option>
-        <option value="7">Last 7 days</option>
-        <option value="30" selected>Last 30 days</option>
-        <option value="month">This month</option>
-        <option value="lastmonth">Last month</option>
-        <option value="season">This season</option>
-        <option value="lastseason">Last season</option>
-        <option value="custom">Custom dates</option>
-      </select>
-      <input type="date" id="d1" aria-label="From date" hidden>
-      <input type="date" id="d2" aria-label="To date" hidden>
-      <button type="button" class="chip" id="showall" aria-pressed="false">Include canals that did not run</button>
+    <div class="sumbar">
+      <label class="fld"><span>Period</span><select id="rng"></select></label>
+      <div class="dates" id="dates" hidden>
+        <label class="fld"><span>From</span><input type="date" id="d1"></label>
+        <label class="fld"><span>To</span><input type="date" id="d2"></label>
+      </div>
+      <div class="sumact noprint">
+        <button type="button" class="btn" id="printbtn">Print / PDF</button>
+        <details class="dl"><summary class="btn">Download</summary>
+          <div class="menu">
+            <button type="button" id="csvdl">Excel – every opening</button>
+            <button type="button" id="csvtot">Excel – total per canal</button>
+            <button type="button" id="copy">Copy as text</button>
+          </div>
+        </details>
+      </div>
     </div>
-    <p class="sub rngtxt" id="rngtxt"></p>
-    <div class="stats stats4">
-      <div class="stat"><b id="m-can">0</b><span>canals ran</span></div>
-      <div class="stat"><b id="m-ica">0</b><span>ha ICA got water</span></div>
-      <div class="stat"><b id="m-days">0</b><span>water flowing in any canal</span></div>
-      <div class="stat"><b id="m-runs">0</b><span>openings</span></div>
+    <p class="sub copymsg noprint" id="copymsg" aria-live="polite"></p>
+    <textarea id="csv" hidden readonly aria-label="Summary as text"></textarea>
+    <div class="ptitle"><h2 id="ptitle"></h2><p id="rngtxt"></p></div>
+    <div class="kpis">
+      <div class="kpi"><b id="m-ica">0</b><span>ha ICA irrigated</span></div>
+      <div class="kpi"><b id="m-can">0</b><span id="m-runs">canals run</span></div>
+      <div class="kpi"><b id="m-days">0</b><span>water flowing</span></div>
     </div>
-    <h2 class="sh">Timeline</h2>
+    <h3 class="sh">By system</h3>
+    <div class="tblwrap"><table class="rpt" id="systbl"></table></div>
+    <h3 class="sh">Rotation</h3>
     <div class="tlwrap" id="tl"></div>
-    <p class="sub tltip" id="tltip" aria-live="polite"></p>
-    <h2 class="sh">By system</h2>
+    <p class="sub tltip noprint" id="tltip" aria-live="polite"></p>
+    <h3 class="sh shrow">Canal details <button type="button" class="linkbtn noprint" id="showall" aria-pressed="false">Show canals that did not run</button></h3>
     <div id="sumgroups"></div>
-    <div class="tools noprint" style="margin-top:14px">
-      <button type="button" class="btn pri" id="printbtn">Print or save PDF</button>
-      <button type="button" class="btn" id="csvdl">Excel: every opening</button>
-      <button type="button" class="btn" id="csvtot">Excel: total per canal</button>
-      <button type="button" class="btn" id="copy">Copy table</button>
-      <span class="sub" id="copymsg"></span>
-    </div>
-    <textarea id="csv" hidden readonly aria-label="Summary table text"></textarea>
-    <p class="cap noprint" id="sumnote"></p>
+    <p class="cap foot" id="sumnote"></p>
   </section>
 </div>
 
@@ -575,63 +617,81 @@ $("list").addEventListener("click",e=>{
    Maharashtra irrigation seasons: Kharif 1 Jul - 14 Oct, Rabi 15 Oct - end Feb, Hot weather 1 Mar - 30 Jun. */
 const SEASONS=[{name:"Kharif",m:7,d:1},{name:"Rabi",m:10,d:15},{name:"Hot weather",m:3,d:1}];
 function seasonsAround(t){ const y=new Date(t).getFullYear(), L=[];
-  for(let yr=y-2;yr<=y+1;yr++) for(const x of SEASONS) L.push({name:x.name,a:new Date(yr,x.m-1,x.d).getTime()});
+  for(let yr=y-3;yr<=y+1;yr++) for(const x of SEASONS) L.push({name:x.name,a:new Date(yr,x.m-1,x.d).getTime()});
   L.sort((p,q)=>p.a-q.a); for(let i=0;i<L.length-1;i++) L[i].b=L[i+1].a; return L.slice(0,-1); }
 const seasonName=x=>{ const ya=new Date(x.a).getFullYear(), yb=new Date(x.b-1).getFullYear(); return x.name+" "+(ya===yb?ya:ya+"-"+String(yb).slice(2)); };
+const monthName=d=>d.toLocaleDateString("en-IN",{month:"long",year:"numeric"});
+/* the period list: seasons first (the current one is the default), then recent days, then months */
+function buildPeriods(){
+  const now=Date.now(), L=seasonsAround(now), ci=L.findIndex(x=>x.a<=now&&now<x.b), m0=new Date(); m0.setDate(1); m0.setHours(0,0,0,0);
+  let h='<optgroup label="Irrigation season">';
+  for(let i=ci;i>=Math.max(0,ci-5);i--) h+='<option value="s:'+L[i].a+':'+L[i].b+'"'+(i===ci?" selected":"")+'>'+esc(seasonName(L[i]))+(i===ci?" (current)":"")+'</option>';
+  h+='</optgroup><optgroup label="Recent"><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></optgroup><optgroup label="Month">';
+  for(let k=0;k<6;k++){ const d=new Date(m0); d.setMonth(d.getMonth()-k); const e=new Date(d); e.setMonth(e.getMonth()+1); h+='<option value="m:'+d.getTime()+':'+e.getTime()+'">'+esc(monthName(d))+(k===0?" (this month)":"")+'</option>'; }
+  h+='</optgroup><option value="custom">Custom dates…</option>';
+  $("rng").innerHTML=h;
+}
+buildPeriods();
 function range(){
-  const v=$("rng").value, now=Date.now(), d0=new Date(); d0.setHours(0,0,0,0); const t0=d0.getTime(); let a,b=now,name="";
-  if(v==="today") a=t0;
-  else if(v==="yesterday"){ const d=new Date(t0); d.setDate(d.getDate()-1); a=d.getTime(); b=t0; }
-  else if(v==="month"){ const d=new Date(t0); d.setDate(1); a=d.getTime(); }
-  else if(v==="lastmonth"){ const d=new Date(t0); d.setDate(1); b=d.getTime(); d.setMonth(d.getMonth()-1); a=d.getTime(); }
-  else if(v==="season"||v==="lastseason"){ const L=seasonsAround(now); let i=L.findIndex(x=>x.a<=now&&now<x.b); if(v==="lastseason") i--; a=L[i].a; b=Math.min(L[i].b,now); name=seasonName(L[i]); }
+  const v=$("rng").value, sel=$("rng").selectedOptions[0], now=Date.now(), d0=new Date(); d0.setHours(0,0,0,0); const t0=d0.getTime(); let a,b=now,name="";
+  if(/^[sm]:/.test(v)){ const p=v.split(":"); a=+p[1]; b=Math.min(+p[2],now); name=sel.textContent.replace(/ \((current|this month)\)$/,""); }
+  else if(v==="today"){ a=t0; name="Today"; }
+  else if(v==="yesterday"){ const d=new Date(t0); d.setDate(d.getDate()-1); a=d.getTime(); b=t0; name="Yesterday"; }
   else if(v==="custom"){
     a=$("d1").value?new Date($("d1").value+"T00:00").getTime():now-30*DAY;
     b=$("d2").value?new Date($("d2").value+"T00:00").getTime()+DAY:now;
-    if(b>now&&now>a) b=now; if(b<=a) b=a+DAY;
-  } else { const d=new Date(t0); d.setDate(d.getDate()-(+v-1)); a=d.getTime(); }
+    if(b>now&&now>a) b=now; if(b<=a) b=a+DAY; name="Custom period";
+  } else { const d=new Date(t0); d.setDate(d.getDate()-(+v-1)); a=d.getTime(); name="Last "+v+" days"; }
   return [a,b,name];
 }
 const icaOf=c=>c.info&&c.info.ica!=null?c.info.ica:(c.ica||0);
 const fmtHa=n=>Math.round(n).toLocaleString("en-IN");
 const fmtDay=t=>new Date(t).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
-const SUMCLOSED=new Set();
+const SUMCLOSED=new Set(), SUMROWS=new Set();
 let SUM=null;   // the last summary, used by the downloads and the printout
+const unionMs=iv=>{ iv=iv.slice().sort((p,q)=>p[0]-q[0]); let ms=0,cur=null; for(const x of iv){ if(cur&&x[0]<=cur[1]) cur[1]=Math.max(cur[1],x[1]); else{ if(cur) ms+=cur[1]-cur[0]; cur=[x[0],x[1]]; } } if(cur) ms+=cur[1]-cur[0]; return ms; };
 function summarise(){
   const [a,b,name]=range(), now=Date.now(), runs=new Map(), ran=new Set();
   for(const c of CANALS){ const r=calc(P(c.id),a,b,now); if(r.ms>0){ ran.add(c.id); runs.set(c.id,{r,list:P(c.id).filter(p=>p.s<b&&(p.e==null?now:p.e)>a)}); } }
   /* ICA counted once: a minor's ICA is part of its DY's, so skip a canal whose parent also ran */
   const top=c=>{ for(let p=c.parent;p;p=p.parent) if(ran.has(p.id)) return false; return true; };
-  const sys=GORDER.map(g=>{ const all=CANALS.filter(c=>c.grp===g), rows=all.filter(c=>ran.has(c.id)||S.showAll).map(c=>({c,...(runs.get(c.id)||{r:{ms:0,runs:0,iv:[]},list:[]})}));
+  const sys=GORDER.map(g=>{ const rows=CANALS.filter(c=>c.grp===g&&(ran.has(c.id)||S.showAll)).map(c=>({c,...(runs.get(c.id)||{r:{ms:0,runs:0,iv:[]},list:[]})}));
     rows.sort((x,y)=>y.r.ms-x.r.ms);
-    const iv=rows.flatMap(x=>x.r.iv).sort((p,q)=>p[0]-q[0]); let ms=0,cur=null; for(const x of iv){ if(cur&&x[0]<=cur[1]) cur[1]=Math.max(cur[1],x[1]); else{ if(cur) ms+=cur[1]-cur[0]; cur=[x[0],x[1]]; } } if(cur) ms+=cur[1]-cur[0];
-    const ranRows=rows.filter(x=>x.r.ms>0);
-    return {g,rows,ran:ranRows.length,opens:ranRows.reduce((n,x)=>n+x.r.runs,0),ms,iv,
-      ica:ranRows.filter(x=>top(x.c)).reduce((n,x)=>n+icaOf(x.c),0),
-      hd:ranRows.filter(x=>top(x.c)).reduce((n,x)=>n+icaOf(x.c)*x.r.ms/DAY,0)}; });
-  const iv=sys.flatMap(x=>x.iv).sort((p,q)=>p[0]-q[0]); let ms=0,cur=null; for(const x of iv){ if(cur&&x[0]<=cur[1]) cur[1]=Math.max(cur[1],x[1]); else{ if(cur) ms+=cur[1]-cur[0]; cur=[x[0],x[1]]; } } if(cur) ms+=cur[1]-cur[0];
-  return {a,b,name,now,sys,ms,ran:ran.size,opens:sys.reduce((n,x)=>n+x.opens,0),ica:sys.reduce((n,x)=>n+x.ica,0),hd:sys.reduce((n,x)=>n+x.hd,0)};
+    const rr=rows.filter(x=>x.r.ms>0), iv=rr.flatMap(x=>x.r.iv);
+    return {g,rows,ran:rr.length,opens:rr.reduce((n,x)=>n+x.r.runs,0),ms:unionMs(iv),iv,
+      ica:rr.filter(x=>top(x.c)).reduce((n,x)=>n+icaOf(x.c),0),hd:rr.filter(x=>top(x.c)).reduce((n,x)=>n+icaOf(x.c)*x.r.ms/DAY,0)}; });
+  return {a,b,name,now,sys,ms:unionMs(sys.flatMap(x=>x.iv)),ran:ran.size,opens:sys.reduce((n,x)=>n+x.opens,0),ica:sys.reduce((n,x)=>n+x.ica,0),hd:sys.reduce((n,x)=>n+x.hd,0)};
 }
-const periodText=R=>{ const x=fmtDay(R.a), y=fmtDay(R.b-1); return (R.name?R.name+": ":"")+(x===y?x:x+" \u2013 "+y)+(R.b>=R.now-60e3?" (up to now)":""); };
+const datesText=R=>{ const x=fmtDay(R.a), y=fmtDay(R.b-1); return (x===y?x:x+" – "+y)+(R.b>=R.now-60e3?" · up to now":""); };
+const periodText=R=>R.name+", "+datesText(R);
+const shortSys=g=>g.replace("Sonsal Left Bank Canal","Sonsal LBC").replace("Mohite-Vadgaon Vitarika","Mohite-Vadgaon").replace("Takari-Dudhari Pipeline","Takari-Dudhari PDN");
+const dash="–";
 function renderSummary(){
   const R=SUM=summarise();
-  $("rngtxt").textContent=periodText(R);
-  $("m-can").textContent=R.ran; $("m-ica").textContent=fmtHa(R.ica); $("m-days").textContent=R.ms?fmtRun(R.ms):"0"; $("m-runs").textContent=R.opens;
+  $("ptitle").textContent=R.name; $("rngtxt").textContent=datesText(R);
+  $("m-ica").textContent=fmtHa(R.ica); $("m-can").textContent=R.ran; $("m-runs").textContent=(R.ran===1?"canal run":"canals run")+(R.opens?" · "+R.opens+(R.opens===1?" opening":" openings"):"");
+  $("m-days").textContent=R.ms?fmtRun(R.ms):"0";
+  /* by system */
+  $("systbl").innerHTML='<thead><tr><th>System</th><th class="n">Canals</th><th class="n">ICA (ha)</th><th class="n">Water flowing</th></tr></thead><tbody>'
+    +R.sys.map(x=>'<tr'+(x.ran?"":' class="none"')+'><td>'+(x.ran?'<button type="button" class="sys" data-jump="'+esc(x.g)+'">'+esc(x.g)+'</button>':esc(x.g))+'</td><td class="n">'+(x.ran||dash)+'</td><td class="n">'+(x.ran?fmtHa(x.ica):dash)+'</td><td class="n">'+(x.ran?esc(fmtRun(x.ms)):dash)+'</td></tr>').join("")
+    +'<tr class="tot"><td>Total</td><td class="n">'+R.ran+'</td><td class="n">'+fmtHa(R.ica)+'</td><td class="n">'+(R.ms?esc(fmtRun(R.ms)):dash)+'</td></tr></tbody>';
   renderTimeline(R);
+  /* canal details, one block per system that ran */
   let h="";
-  for(const x of R.sys){
-    const ex=x.rows.length>0&&(!SUMCLOSED.has(x.g)||!!S.printAll);
-    const sum=x.ran?x.ran+(x.ran===1?" canal":" canals")+" · "+fmtHa(x.ica)+" ha<br>"+fmtRun(x.ms)+" · "+x.opens+(x.opens===1?" opening":" openings"):"Did not run";
-    h+='<button type="button" class="ghead'+(x.ran?" live":"")+'" data-sg="'+esc(x.g)+'" aria-expanded="'+ex+'"'+(x.rows.length?"":" disabled")+'><span class="chev" aria-hidden="true"></span><span class="gname">'+esc(x.g)+'</span><span class="gsum">'+sum+'</span></button>';
-    if(!ex) continue;
-    h+='<div class="tblwrap"><table><thead><tr><th>Canal</th><th>Opened &rarr; Closed</th><th class="n">Run time</th></tr></thead><tbody>'
-      +x.rows.map(({c,r,list})=>'<tr><td><button type="button" class="lnk" data-id="'+esc(c.id)+'">'+esc(c.short)+'</button><span class="ical">'+(icaOf(c)?"ICA "+fmtHa(icaOf(c))+" ha":"")+'</span></td>'
-        +'<td class="runs">'+(list.map(p=>'<div'+(p.e==null?' class="runon"':'')+'>'+(p.s<R.a?'<span class="before" title="Opened before this period; only time inside the period is counted">from before</span>':'')+'<span>'+esc(fmtDT(p.s))+'</span> &rarr; <span>'+(p.e==null?'still running':esc(fmtDT(p.e)))+'</span></div>').join("")||'<span class="sub">Did not run</span>')+'</td>'
-        +'<td class="n">'+(r.ms?esc(fmtRun(r.ms)):"–")+'</td></tr>').join("")+'</tbody></table></div>';
-  }
-  $("sumgroups").innerHTML=R.ran||S.showAll?h:'<div class="empty">No canal has been logged as running in this period. Open one from the Map or Canals view and it will appear here.</div>';
-  $("sumnote").textContent="Seasons: "+SEASONS.map((x,i)=>{ const n=SEASONS[(i+1)%SEASONS.length], e=new Date(2001,n.m-1,n.d-1); return x.name+" "+x.d+" "+new Date(2001,x.m-1,1).toLocaleDateString("en-IN",{month:"short"})+" – "+(e.getMonth()===1&&e.getDate()>=28?"end Feb":e.getDate()+" "+e.toLocaleDateString("en-IN",{month:"short"})); }).join(", ")
-    +". ICA is counted once: a minor's ICA is left out when its DY also ran. “From before” marks a run that opened before the period; only the time inside the period is counted.";
+  for(const x of R.sys){ if(!x.rows.length) continue;
+    const ex=!SUMCLOSED.has(x.g)||!!S.printAll;
+    h+='<div class="dsys" id="d-'+esc(x.g.replace(/\W+/g,"-"))+'"><button type="button" class="dhead" data-sg="'+esc(x.g)+'" aria-expanded="'+ex+'"><span class="chev" aria-hidden="true"></span><span class="gname">'+esc(x.g)+'</span><span class="gsum">'+(x.ran?x.ran+(x.ran===1?" canal":" canals")+" · "+fmtHa(x.ica)+" ha":"did not run")+'</span></button>';
+    if(ex) h+='<div class="tblwrap"><table class="rpt fixed"><colgroup><col class="c1"><col class="c2"><col class="c3"></colgroup><thead><tr><th>Canal</th><th class="n">ICA (ha)</th><th class="n">Run time</th></tr></thead><tbody>'
+      +x.rows.map(({c,r,list})=>{ const open=SUMROWS.has(c.id)||!!S.printAll, on=list.some(p=>p.e==null), ch=c.info&&c.info.ch?"Ch "+c.info.ch:"";
+        let t='<tr'+(on?' class="open-now"':'')+'><td>'+(list.length?'<button type="button" class="rx" data-rx="'+esc(c.id)+'" aria-expanded="'+open+'"><span class="chev" aria-hidden="true"></span><span><b>'+esc(c.short)+'</b>'+(ch?'<small>'+esc(ch)+'</small>':'')+'</span></button>':'<span class="rx"><span><b>'+esc(c.short)+'</b>'+(ch?'<small>'+esc(ch)+'</small>':'')+'</span></span>')+'</td>'
+          +'<td class="n">'+(icaOf(c)?fmtHa(icaOf(c)):dash)+'</td><td class="n">'+(r.ms?esc(fmtRun(r.ms))+'<small class="rsub">'+r.runs+(r.runs===1?" opening":" openings")+(on?' \u00b7 <span class="sat">running</span>':"")+'</small>':dash)+'</td></tr>';
+        if(open&&list.length) t+='<tr class="runsrow"><td colspan="3"><ul class="runlist">'+list.map(p=>'<li'+(p.e==null?' class="rnow"':'')+'><span>'+esc(fmtDT(p.s))+(p.s<R.a?"*":"")+' → '+(p.e==null?"still running":esc(fmtDT(p.e)))+'</span><span>'+esc(fmtRun((p.e==null?R.now:p.e)-p.s))+'</span></li>').join("")+'</ul></td></tr>';
+        return t; }).join("")+'</tbody></table></div>';
+    h+='</div>'; }
+  $("sumgroups").innerHTML=h||'<div class="empty">No canal has been logged as running in this period.</div>';
+  const before=R.sys.some(x=>x.rows.some(y=>y.list.some(p=>p.s<R.a)));
+  $("sumnote").textContent=(before?"* Opened before the period; only the time inside the period is counted. ":"")+"ICA is counted once: a minor's ICA is left out when its DY also ran. Seasons: "
+    +SEASONS.map((x,i)=>{ const n=SEASONS[(i+1)%SEASONS.length], e=new Date(2001,n.m-1,n.d-1), mon=d=>d.toLocaleDateString("en-IN",{month:"short"}); return x.name+" "+x.d+" "+mon(new Date(2001,x.m-1,1))+" – "+(e.getMonth()===1&&e.getDate()>=28?"end Feb":e.getDate()+" "+mon(e)); }).join(", ")+".";
 }
 function renderTimeline(R){
   const span=R.b-R.a, days=span/DAY, step=[1,2,7,14,30,61,91,182].find(x=>days/x<=6)||365;
@@ -639,20 +699,27 @@ function renderTimeline(R){
     while(d.getTime()<=R.b){ ticks.push(d.getTime()); d.setDate(d.getDate()+step); } }
   const pct=t=>((t-R.a)/span*100).toFixed(3)+"%", fmtT=t=>new Date(t).toLocaleDateString("en-IN",{day:"numeric",month:"short"});
   const tickW=(step*DAY/span*100).toFixed(3)+"%";
-  let h='<div class="tlaxis"><span></span><div class="tlt">'+(days<=1.01?'<span class="l" style="left:0">'+esc(fmtT(R.a))+'</span>':(()=>{ let last=-1; return ticks.map(t=>{ const f=(t-R.a)/span; if(f>.9||(last>=0&&f-last<.17)) return ""; last=f; return '<span class="'+(f<.08?"l":"")+'" style="left:'+pct(t)+'">'+esc(fmtT(t))+'</span>'; }).join(""); })())+'</div></div>';
+  let h='<div class="tlaxis"><span></span><div class="tlt">'+(days<=1.01?'<span class="l" style="left:0">'+esc(fmtT(R.a))+'</span>':(()=>{ let last=-1; return ticks.map(t=>{ const f=(t-R.a)/span; if(f>.9||(last>=0&&f-last<.24)) return ""; last=f; return '<span class="'+(f<.08?"l":"")+'" style="left:'+pct(t)+'">'+esc(fmtT(t))+'</span>'; }).join(""); })())+'</div></div>';
   let n=0;
   for(const x of R.sys){ const rows=x.rows.filter(y=>y.r.ms>0); if(!rows.length) continue;
-    h+='<div class="tlsys">'+esc(x.g)+'</div>';
+    h+='<div class="tlsys">'+esc(shortSys(x.g))+'</div>';
     for(const {c,list} of rows.slice().sort((p,q)=>p.list[0].s-q.list[0].s)){ n++;
       h+='<div class="tlrow"><span class="tln" title="'+esc(c.label)+'">'+esc(c.short)+'</span><div class="tlbar" style="--tick:'+tickW+';background-position-x:'+pct(ticks[0]||R.a)+'">'
         +list.map(p=>{ const s=Math.max(p.s,R.a), e=Math.min(p.e==null?R.now:p.e,R.b), tip=c.label+": "+fmtDT(p.s)+" → "+(p.e==null?"still running":fmtDT(p.e))+" ("+fmtRun((p.e==null?R.now:p.e)-p.s)+")";
           return '<button type="button" class="tlb'+(p.e==null?" on":"")+'" style="left:'+pct(s)+';width:'+((e-s)/span*100).toFixed(3)+'%" data-tip="'+esc(tip)+'" title="'+esc(tip)+'" aria-label="'+esc(tip)+'"></button>'; }).join("")
         +'</div></div>'; } }
   $("tl").innerHTML=n?h:'<div class="empty">Nothing ran in this period.</div>';
-  $("tltip").textContent=n?"Tap a bar to see its times. Striped bars are still running.":"";
+  $("tltip").textContent=n?"Tap a bar for its times. Striped bars are still running.":"";
 }
 $("tl").addEventListener("click",e=>{ const t=e.target.closest(".tlb"); if(t) $("tltip").textContent=t.dataset.tip; });
-$("sumgroups").addEventListener("click",e=>{ const g=e.target.closest("[data-sg]"); if(!g||g.disabled) return; const k=g.dataset.sg; SUMCLOSED.has(k)?SUMCLOSED.delete(k):SUMCLOSED.add(k); renderSummary(); const f=$("sumgroups").querySelector('[data-sg="'+CSS.escape(k)+'"]'); if(f) f.focus(); });
+$("v-summary").addEventListener("click",e=>{
+  const g=e.target.closest("[data-sg]"), x=e.target.closest("[data-rx]"), j=e.target.closest("[data-jump]"); let sel=null;
+  if(j){ SUMCLOSED.delete(j.dataset.jump); renderSummary(); const el=$("d-"+j.dataset.jump.replace(/\W+/g,"-")); if(el){ el.scrollIntoView({behavior:"smooth",block:"start"}); el.querySelector(".dhead").focus({preventScroll:true}); } return; }
+  if(g){ const k=g.dataset.sg; SUMCLOSED.has(k)?SUMCLOSED.delete(k):SUMCLOSED.add(k); sel='[data-sg="'+CSS.escape(k)+'"]'; }
+  else if(x){ const k=x.dataset.rx; SUMROWS.has(k)?SUMROWS.delete(k):SUMROWS.add(k); sel='[data-rx="'+CSS.escape(k)+'"]'; }
+  else return;
+  renderSummary(); const f=$("sumgroups").querySelector(sel); if(f) f.focus();
+});
 
 /* ---------- canal sheet ---------- */
 function openSheet(id){ S.sel=id; S.err=""; S.confirm=null; $("scrim").classList.add("on"); renderSheet(); drawMap(); const x=$("sheet").querySelector(".x"); if(x) x.focus(); }
@@ -912,7 +979,7 @@ $("csvdl").addEventListener("click",()=>{ const R=SUM, out=[];
 $("csvtot").addEventListener("click",()=>{ const R=SUM, out=[];
   for(const x of R.sys) for(const {c,r} of x.rows) out.push([...meta(c),r.runs,(r.ms/HOUR).toFixed(2),r.ms?fmtRun(r.ms):"",(icaOf(c)*r.ms/DAY).toFixed(1)]);
   saveCsv("totals",["System","Canal","Name in KMZ","ICA (ha)","CCA (ha)","Offtake chainage","Openings","Hours in period","Run time in period","ICA x days (ha-days)"],out); });
-function printHead(){ const R=SUM; $("printhead").innerHTML='<h1>Takari Canal Running Report</h1><div>Krishna Koyna Lift Irrigation Scheme, Takari</div><div><b>Period:</b> '+esc(periodText(R))+'</div><div><b>Printed:</b> '+esc(fmtDT(Date.now()))+'</div>'; }
+function printHead(){ const R=SUM; $("printhead").innerHTML='<h1>Takari Canal Running Report</h1><div>Krishna Koyna Lift Irrigation Scheme, Takari</div><div><b>Period:</b> '+esc(periodText(R))+' &nbsp; <b>Printed:</b> '+esc(fmtDT(Date.now()))+'</div>'; }
 $("printbtn").addEventListener("click",()=>window.print());
 window.addEventListener("beforeprint",()=>{ S.printAll=true; renderSummary(); printHead(); });
 window.addEventListener("afterprint",()=>{ S.printAll=false; renderSummary(); });
@@ -925,9 +992,11 @@ function renderAll(){ renderStats(); renderList(); renderSummary(); drawMap(); i
 window.addEventListener("hashchange",showView);
 $("q").addEventListener("input",renderList);
 document.querySelectorAll(".chip[data-f]").forEach(b=>b.addEventListener("click",()=>{ S.filter=b.dataset.f; document.querySelectorAll(".chip[data-f]").forEach(x=>x.setAttribute("aria-pressed",x===b)); renderList(); }));
-$("rng").addEventListener("change",()=>{ const c=$("rng").value==="custom"; $("d1").hidden=$("d2").hidden=!c; renderSummary(); });
+$("rng").addEventListener("change",()=>{ $("dates").hidden=$("rng").value!=="custom"; renderSummary(); });
 $("d1").addEventListener("change",renderSummary); $("d2").addEventListener("change",renderSummary);
-$("showall").addEventListener("click",()=>{ S.showAll=!S.showAll; $("showall").setAttribute("aria-pressed",S.showAll); renderSummary(); });
+$("showall").addEventListener("click",()=>{ S.showAll=!S.showAll; $("showall").setAttribute("aria-pressed",S.showAll); $("showall").textContent=S.showAll?"Hide canals that did not run":"Show canals that did not run"; renderSummary(); });
+/* close the Download menu after a choice */
+document.querySelectorAll(".dl .menu button").forEach(b=>b.addEventListener("click",()=>b.closest("details").open=false));
 $("copy").addEventListener("click",async()=>{ const R=SUM; let txt="Takari canal running summary, "+periodText(R)+"\n";
   txt+="Canals ran "+R.ran+", ICA "+fmtHa(R.ica)+" ha, water flowing "+(R.ms?fmtRun(R.ms):"0")+", openings "+R.opens+"\n";
   for(const x of R.sys){ if(!x.rows.length) continue; txt+="\n"+x.g+" ("+(x.ran?x.ran+" canals, "+fmtHa(x.ica)+" ha, "+fmtRun(x.ms):"did not run")+")\nCanal\tICA ha\tOpened -> Closed\tRun time\n";
