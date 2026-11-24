@@ -165,8 +165,13 @@ summary{cursor:pointer;font-weight:600}
 .fld{display:grid;gap:3px;font-size:12px;color:var(--muted)}
 .fld select,.fld input{background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:8px;padding:9px 12px;font-size:15px;min-width:0}
 .fld select{min-width:210px}
-.dates{display:flex;gap:10px}.dates[hidden]{display:none}
+.dates{display:flex;gap:10px}.dates[hidden],.fld[hidden]{display:none}
+.pfld{flex:1 1 100%}
+.pchips{display:flex;flex-wrap:wrap;gap:6px}
+.pchips .chip{padding:7px 12px;font-size:14px}
+.pchips .chip small{font-size:11px;opacity:.75;margin-left:4px}
 .sumact{display:flex;gap:8px;margin-left:auto;align-items:flex-end}
+.sumbar .fld select{min-width:200px}
 .dl{position:relative;border:0;padding:0}
 .dl summary{list-style:none}.dl summary::-webkit-details-marker{display:none}
 .dl summary::after{content:"";display:inline-block;width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:0 0 3px 8px}
@@ -333,7 +338,10 @@ tr.runsrow td{background:var(--paper);padding:6px 10px 10px 30px;border-top:0}
   <section class="view" id="v-summary">
     <div class="printhead" id="printhead"></div>
     <div class="sumbar">
-      <label class="fld"><span>Period</span><select id="rng"></select></label>
+      <div class="fld pfld"><span id="plab">Period</span>
+        <div class="pchips" role="group" aria-labelledby="plab" id="pchips"></div>
+      </div>
+      <label class="fld" id="earlier" hidden><span>Earlier period</span><select id="rng"></select></label>
       <div class="dates" id="dates" hidden>
         <label class="fld"><span>From</span><input type="date" id="d1"></label>
         <label class="fld"><span>To</span><input type="date" id="d2"></label>
@@ -614,27 +622,44 @@ $("list").addEventListener("click",e=>{
 
 /* ---------- summary ---------- */
 /* Irrigation seasons: the day each one starts; a season ends when the next begins.
-   Maharashtra irrigation seasons: Kharif 1 Jul - 14 Oct, Rabi 15 Oct - end Feb, Hot weather 1 Mar - 30 Jun. */
-const SEASONS=[{name:"Kharif",m:7,d:1},{name:"Rabi",m:10,d:15},{name:"Hot weather",m:3,d:1}];
+   Maharashtra irrigation seasons: Kharif 1 Jul - 14 Oct, Rabi 15 Oct - end Feb, Summer (hot weather) 1 Mar - 30 Jun.
+   A season is named by the year it starts: Rabi 2025 runs 15 Oct 2025 - end Feb 2026. */
+const SEASONS=[{name:"Kharif",m:7,d:1},{name:"Rabi",m:10,d:15},{name:"Summer",m:3,d:1}];
 function seasonsAround(t){ const y=new Date(t).getFullYear(), L=[];
   for(let yr=y-3;yr<=y+1;yr++) for(const x of SEASONS) L.push({name:x.name,a:new Date(yr,x.m-1,x.d).getTime()});
   L.sort((p,q)=>p.a-q.a); for(let i=0;i<L.length-1;i++) L[i].b=L[i+1].a; return L.slice(0,-1); }
-const seasonName=x=>{ const ya=new Date(x.a).getFullYear(), yb=new Date(x.b-1).getFullYear(); return x.name+" "+(ya===yb?ya:ya+"-"+String(yb).slice(2)); };
+const seasonName=x=>x.name+" "+new Date(x.a).getFullYear();
 const monthName=d=>d.toLocaleDateString("en-IN",{month:"long",year:"numeric"});
-/* the period list: seasons first (the current one is the default), then recent days, then months */
+/* periods: buttons for the last four seasons, last 7 days, this month and custom dates;
+   older seasons and months are in the "Earlier…" list */
+S.period=null; const PNAME={};
 function buildPeriods(){
   const now=Date.now(), L=seasonsAround(now), ci=L.findIndex(x=>x.a<=now&&now<x.b), m0=new Date(); m0.setDate(1); m0.setHours(0,0,0,0);
-  let h='<optgroup label="Irrigation season">';
-  for(let i=ci;i>=Math.max(0,ci-5);i--) h+='<option value="s:'+L[i].a+':'+L[i].b+'"'+(i===ci?" selected":"")+'>'+esc(seasonName(L[i]))+(i===ci?" (current)":"")+'</option>';
-  h+='</optgroup><optgroup label="Recent"><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></optgroup><optgroup label="Month">';
-  for(let k=0;k<6;k++){ const d=new Date(m0); d.setMonth(d.getMonth()-k); const e=new Date(d); e.setMonth(e.getMonth()+1); h+='<option value="m:'+d.getTime()+':'+e.getTime()+'">'+esc(monthName(d))+(k===0?" (this month)":"")+'</option>'; }
-  h+='</optgroup><option value="custom">Custom dates…</option>';
+  const sv=x=>"s:"+x.a+":"+x.b, chips=[];
+  for(let i=ci;i>=Math.max(0,ci-3);i--){ PNAME[sv(L[i])]=seasonName(L[i]); chips.push([sv(L[i]),seasonName(L[i]),i===ci?"current":""]); }
+  const me=new Date(m0); me.setMonth(me.getMonth()+1); const mv="m:"+m0.getTime()+":"+me.getTime(); PNAME[mv]=monthName(m0); PNAME["7"]="Last 7 days";
+  chips.push(["7","Last 7 days",""],[mv,"This month",""],["custom","Custom dates",""],["earlier","Earlier…",""]);
+  if(!S.period) S.period=chips[0][0];
+  $("pchips").innerHTML=chips.map(([v,t,sm])=>'<button type="button" class="chip" data-p="'+esc(v)+'" aria-pressed="'+(S.period===v||(v==="earlier"&&S.earlier))+'">'+esc(t)+(sm?'<small>'+sm+'</small>':'')+'</button>').join("");
+  let h='<optgroup label="Seasons">';
+  for(let i=ci-4;i>=Math.max(0,ci-12);i--){ PNAME[sv(L[i])]=seasonName(L[i]); h+='<option value="'+sv(L[i])+'">'+esc(seasonName(L[i]))+'</option>'; }
+  h+='</optgroup><optgroup label="Months">';
+  for(let k=1;k<=12;k++){ const d=new Date(m0); d.setMonth(d.getMonth()-k); const e=new Date(d); e.setMonth(e.getMonth()+1); const v="m:"+d.getTime()+":"+e.getTime(); PNAME[v]=monthName(d); h+='<option value="'+v+'">'+esc(monthName(d))+'</option>'; }
+  h+='</optgroup><optgroup label="Recent"><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="30">Last 30 days</option></optgroup>';
   $("rng").innerHTML=h;
 }
 buildPeriods();
+function setPeriod(v,fromEarlier){
+  S.earlier=!!fromEarlier||v==="earlier";
+  S.period=v==="earlier"?$("rng").value:v;
+  $("earlier").hidden=!S.earlier; $("dates").hidden=S.period!=="custom";
+  document.querySelectorAll("#pchips .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.p===(S.earlier?"earlier":S.period)));
+  renderSummary();
+}
+$("pchips").addEventListener("click",e=>{ const b=e.target.closest("[data-p]"); if(b) setPeriod(b.dataset.p); });
 function range(){
-  const v=$("rng").value, sel=$("rng").selectedOptions[0], now=Date.now(), d0=new Date(); d0.setHours(0,0,0,0); const t0=d0.getTime(); let a,b=now,name="";
-  if(/^[sm]:/.test(v)){ const p=v.split(":"); a=+p[1]; b=Math.min(+p[2],now); name=sel.textContent.replace(/ \((current|this month)\)$/,""); }
+  const v=S.period, now=Date.now(), d0=new Date(); d0.setHours(0,0,0,0); const t0=d0.getTime(); let a,b=now,name="";
+  if(/^[sm]:/.test(v)){ const p=v.split(":"); a=+p[1]; b=Math.min(+p[2],now); name=PNAME[v]||""; }
   else if(v==="today"){ a=t0; name="Today"; }
   else if(v==="yesterday"){ const d=new Date(t0); d.setDate(d.getDate()-1); a=d.getTime(); b=t0; name="Yesterday"; }
   else if(v==="custom"){
@@ -691,7 +716,7 @@ function renderSummary(){
   $("sumgroups").innerHTML=h||'<div class="empty">No canal has been logged as running in this period.</div>';
   const before=R.sys.some(x=>x.rows.some(y=>y.list.some(p=>p.s<R.a)));
   $("sumnote").textContent=(before?"* Opened before the period; only the time inside the period is counted. ":"")+"ICA is counted once: a minor's ICA is left out when its DY also ran. Seasons: "
-    +SEASONS.map((x,i)=>{ const n=SEASONS[(i+1)%SEASONS.length], e=new Date(2001,n.m-1,n.d-1), mon=d=>d.toLocaleDateString("en-IN",{month:"short"}); return x.name+" "+x.d+" "+mon(new Date(2001,x.m-1,1))+" – "+(e.getMonth()===1&&e.getDate()>=28?"end Feb":e.getDate()+" "+mon(e)); }).join(", ")+".";
+    +SEASONS.map((x,i)=>{ const n=SEASONS[(i+1)%SEASONS.length], e=new Date(2001,n.m-1,n.d-1), mon=d=>d.toLocaleDateString("en-IN",{month:"short"}); return x.name+" "+x.d+" "+mon(new Date(2001,x.m-1,1))+" – "+(e.getMonth()===1&&e.getDate()>=28?"end Feb":e.getDate()+" "+mon(e)); }).join(", ")+". A season is named by the year it starts: Rabi 2025 runs from 15 Oct 2025 to the end of Feb 2026.";
 }
 function renderTimeline(R){
   const span=R.b-R.a, days=span/DAY, step=[1,2,7,14,30,61,91,182].find(x=>days/x<=6)||365;
@@ -992,7 +1017,7 @@ function renderAll(){ renderStats(); renderList(); renderSummary(); drawMap(); i
 window.addEventListener("hashchange",showView);
 $("q").addEventListener("input",renderList);
 document.querySelectorAll(".chip[data-f]").forEach(b=>b.addEventListener("click",()=>{ S.filter=b.dataset.f; document.querySelectorAll(".chip[data-f]").forEach(x=>x.setAttribute("aria-pressed",x===b)); renderList(); }));
-$("rng").addEventListener("change",()=>{ $("dates").hidden=$("rng").value!=="custom"; renderSummary(); });
+$("rng").addEventListener("change",()=>setPeriod($("rng").value,true));
 $("d1").addEventListener("change",renderSummary); $("d2").addEventListener("change",renderSummary);
 $("showall").addEventListener("click",()=>{ S.showAll=!S.showAll; $("showall").setAttribute("aria-pressed",S.showAll); $("showall").textContent=S.showAll?"Hide canals that did not run":"Show canals that did not run"; renderSummary(); });
 /* close the Download menu after a choice */
