@@ -4,6 +4,7 @@ Live open/closed status of the Takari canal network (Krishna Koyna LIS, Takari p
 
 - `index.html` is the whole site.
 - `canals.js` holds the 294 canal lines and attributes taken from the MAHACANALLI KMZ.
+- `dyinfo.js` holds ICA, CCA, offtake chainage and offtake coordinates from the DY-wise ICA statement, keyed by canal id.
 - `config.js` holds the Firebase settings for live data.
 - `database.rules.json` holds the database rules: anyone can view, only signed-in staff can change status.
 

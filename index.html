@@ -296,6 +296,7 @@ summary{cursor:pointer;font-weight:600}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="canals.js"></script>
+<script src="dyinfo.js"></script>
 <script src="config.js"></script>
 <script>
 "use strict";
@@ -355,7 +356,7 @@ function placeOf(c,grp){
 const CANALS=window.CANALS_RAW.map(c=>{
   const dead=/cancel|cancled/i.test(c.remark||"")||c.status==="Proposed";
   const grp=groupOf(c), pl=placeOf(c,grp);
-  return Object.assign({},c,{grp,dead,k0:pl.dy,kl:pl.letter,k1:pl.rest,label:pl.label,short:pl.short,depth:pl.depth,
+  return Object.assign({},c,{grp,dead,info:(window.DYINFO||{})[c.id]||null,k0:pl.dy,kl:pl.letter,k1:pl.rest,label:pl.label,short:pl.short,depth:pl.depth,
     w:/Main Canal|Feeder|Rising/.test(c.type||"")?3.2:(c.type==="Distributary"||c.type==="Major"||c.type==="Branch Distributary")?1.9:1.1});
 }).sort((a,b)=>GORDER.indexOf(a.grp)-GORDER.indexOf(b.grp)||a.k0-b.k0||a.kl.localeCompare(b.kl)||a.k1.localeCompare(b.k1,undefined,{numeric:true})||(a.off||0)-(b.off||0));
 /* the KMZ splits some canals into several lines with the same name: number them as parts */
@@ -476,7 +477,8 @@ try{ const v=JSON.parse(localStorage.getItem("canalsOpen")||"null"); if(v){ (v.g
 const saveOpen=()=>{ try{ localStorage.setItem("canalsOpen",JSON.stringify({g:[...OPEN.g],r:[...OPEN.r]})); }catch(e){} };
 function rowHtml(c,flat,now){
   const op=openPeriod(P(c.id));
-  const meta=[c.type,c.ica?c.ica+" ha":"",c.dead?(c.status==="Proposed"?"proposed":"cancelled"):""].filter(Boolean).join(" \u00b7 ");
+  const ica=c.info&&c.info.ica!=null?c.info.ica:c.ica;
+  const meta=[c.type,ica?"ICA "+ica+" ha":"",c.info&&c.info.ch?"Ch "+c.info.ch:"",c.dead?(c.status==="Proposed"?"proposed":"cancelled"):""].filter(Boolean).join(" \u00b7 ");
   let x="";
   if(!flat&&c.kids.length){ const d=below(c), r=d.filter(k=>openPeriod(P(k.id))).length, ex=OPEN.r.has(c.id);
     x='<button type="button" class="rexp'+(r?" live":"")+'" data-x="'+esc(c.id)+'" aria-expanded="'+ex+'" aria-label="'+(ex?"Hide":"Show")+" the "+d.length+" canals under "+esc(c.short)+(r?", "+r+" running":"")+'">'
@@ -541,20 +543,35 @@ function renderSummary(){
 /* ---------- canal sheet ---------- */
 function openSheet(id){ S.sel=id; S.err=""; S.confirm=null; $("scrim").classList.add("on"); renderSheet(); drawMap(); const x=$("sheet").querySelector(".x"); if(x) x.focus(); }
 function closeSheet(){ S.sel=null; $("scrim").classList.remove("on"); drawMap(); }
+/* ICA statement figures first; KMZ figures only where they differ */
+const kmCh=m=>Math.floor(m/1000)+"/"+String(Math.round(m%1000)).padStart(3,"0");
+function sheetRows(c){
+  const i=c.info||{}, r=[], kc=c.off!=null&&c.off>0?kmCh(c.off):null;
+  if(i.ica!=null) r.push(["ICA",i.ica+" ha"]); else if(c.ica) r.push(["ICA",c.ica+" ha (KMZ)"]);
+  if(i.cca!=null) r.push(["CCA",i.cca+" ha"]);
+  if(i.ica!=null&&c.ica!=null&&Math.abs(i.ica-c.ica)>0.05) r.push(["ICA in KMZ",c.ica+" ha"]);
+  if(i.ch) r.push(["Offtake chainage",i.ch+(i.on?" on "+i.on:"")]); else if(kc) r.push(["Offtake chainage",kc+" (KMZ)"]);
+  if(i.ch&&kc&&kc!==i.ch) r.push(["Chainage in KMZ",kc]);
+  if(i.lat) r.push(["Offtake location",i.lat.toFixed(5)+", "+i.lon.toFixed(5)]);
+  if(i.src) r.push(["ICA statement",i.src+" (row "+i.row+")"]);
+  return r;
+}
 function renderSheet(){
   if(!S.sel) return; const c=BYID.get(S.sel), ps=P(c.id), op=openPeriod(ps), now=Date.now();
   const can=S.db&&S.canWrite!==false;
   const month=calc(ps,now-30*DAY,now,now);
-  const rows=[["System",c.grp],["Name in KMZ",tidy(c.name)!==c.label.replace(/ \(part \d+\)$/,"")?c.name:null],["Type",c.type],["Construction",c.cons],["Works status",c.status],["ICA",c.ica?c.ica+" ha":null],["Length",(c.lenw||c.len)?(c.lenw||c.len).toLocaleString("en-IN")+" m":null],
-    ["Offtake chainage",c.off!=null?c.off.toLocaleString("en-IN")+" m":null],["Bank",c.lr],["Remark",c.remark],["Last 30 days",month.ms?fmtHM(month.ms)+", "+month.runs+(month.runs===1?" opening":" openings"):"Did not run"]]
+  const rows=[["System",c.grp],["Name in KMZ",tidy(c.name)!==c.label.replace(/ \(part \d+\)$/,"")?c.name:null],["Type",c.type],["Construction",c.cons],["Works status",c.status],
+    ...sheetRows(c),["Length",(c.lenw||c.len)?(c.lenw||c.len).toLocaleString("en-IN")+" m":null],
+    ["Bank",c.lr],["Remark",c.remark],["Last 30 days",month.ms?fmtHM(month.ms)+", "+month.runs+(month.runs===1?" opening":" openings"):"Did not run"]]
     .filter(r=>r[1]!=null&&r[1]!=="");
   let h='<div class="shead"><h2 id="sh-name">'+esc(c.label)+'</h2><button type="button" class="x" aria-label="Close">&times;</button></div>';
   h+='<div class="now'+(op?" open":"")+'"><div><strong>'+(op?"Running":"Closed")+'</strong><div class="sub">'+(op?"since "+esc(fmtDT(op.s))+" ("+esc(dur(now-op.s))+")":(ps.length?"last closed "+esc(fmtDT(ps[ps.length-1].e)):"no runs logged yet"))+'</div></div>';
   if(can) h+='<button type="button" class="btn '+(op?"stop":"pri")+'" id="toggle"'+(S.busy?" disabled":"")+'>'+(op?"Close now":"Open now")+'</button>';
   h+='</div><div class="err" id="sh-err">'+esc(S.err||"")+'</div>';
+  if(c.info&&c.info.note) h+='<div class="note"><b>Check:</b> '+esc(c.info.note)+'</div>';
   if(c.dead) h+='<div class="note">The KMZ marks this canal as '+(c.status==="Proposed"?"proposed":"cancelled")+'.</div>';
   { const l=c.lines.reduce((x,y)=>y.length>x.length?y:x), m=l[Math.floor(l.length/2)];
-    h+='<div class="acts"><button type="button" class="btn" id="showmap">Show on map</button><a class="sat" href="https://www.google.com/maps/dir/?api=1&amp;destination='+m[1]+','+m[0]+'" target="_blank" rel="noopener">Directions in Google Maps</a></div>'; }
+    h+='<div class="acts"><button type="button" class="btn" id="showmap">Show on map</button><a class="sat" href="https://www.google.com/maps/dir/?api=1&amp;destination='+(c.info&&c.info.lat?c.info.lat+','+c.info.lon:m[1]+','+m[0])+'" target="_blank" rel="noopener">'+(c.info&&c.info.lat?"Directions to offtake":"Directions in Google Maps")+'</a></div>'; }
   h+='<dl>'+rows.map(r=>'<dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd>').join("")+'</dl>';
   if(can){
     h+='<details><summary>Enter a different time</summary><div class="form">';
