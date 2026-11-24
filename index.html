@@ -297,18 +297,55 @@ function groupOf(c){
   return "Takari Main Canal";
 }
 const GORDER=["Takari Main Canal","Sonsal Left Bank Canal","Mohite-Vadgaon Vitarika","Takari-Dudhari Pipeline","Chinchani Feeder Canal"];
-function sortKey(c){
-  const m=c.name.match(/D\.?\s?Y\.?\s?(?:No\.?)?\s?-?\s?(\d+)/i);
-  return [m?+m[1]:(/Main Canal$|LBC$|Feeder Canal$/.test(c.name)?-1:9999), c.name.replace(/^(Takari Main Canal|Sonsal LBC)\//,"")];
+/* Where each canal sits in its system: a path like ["DY-2","Minor-9R","Sub Minor-1L"].
+   The KMZ spells DYs many ways (DY-41, DY- 41, DY36, D.Y-83, Dy 52 A, D.Y.No. 5) and sometimes
+   writes the parent last (Minor-1/DY-41); all are brought to one form here. */
+const DYRE=/[Dd]\.?\s?[Yy]\.?\s?(?:No\.?)?\s?-?\s?(\d+)(?:\s?([A-D])(?![A-Za-z]))?/;
+/* Canals the KMZ names without their parent, placed by where they join on the map. */
+const PLACE={"minor-1-1":"DY-91/Minor-1","minor-2":"DY-91/Minor-2","minor-3":"DY-91/Minor-3","minor-4":"DY-91/Minor-4","minor-5":"DY-91/Minor-5",
+  "sub-minor-1":"DY-91/Minor-2/Sub Minor-1","sub-minor-2":"DY-91/Minor-2/Sub Minor-2",
+  "minor-1-2":"DY-21/Minor-1","minor-1-3":"DY-49/Minor-1","distributry-no-18":"DY-18"};
+/* Main-canal offtakes with no DY number, ordered by offtake chainage (Chikhali at 27,960 m, after DY-20). */
+const AFTER={"chikhali-dy":20.5,"cusecs-canal":9998};
+const PIPE=/^(S?Mr|M) ?\d|^Sub Main|^Main Canal \d|^\d+MM|Sonsal and Shirasgaon/i;
+const TRUNK={"Takari Main Canal":"Takari Main Canal","Sonsal Left Bank Canal":"Sonsal LBC","Mohite-Vadgaon Vitarika":"Mohite-Vadgaon Vitarika",
+  "Takari-Dudhari Pipeline":"Takari-Dudhari PDN","Chinchani Feeder Canal":"Chinchani-Ambak Feeder Canal"};
+const PRE={"Sonsal Left Bank Canal":"Sonsal LBC/","Mohite-Vadgaon Vitarika":"Mohite-Vadgaon/","Chinchani Feeder Canal":"Chinchani/"};
+const tidy=s=>s.trim().replace(/\s*-\s*/g,"-").replace(/\s+/g," ");
+const rank=s=>/^DY-/.test(s)?0:/^Minor/i.test(s)?1:/^Sub Minor/i.test(s)?2:/^Lateral/i.test(s)?3:/^Sub Lateral/i.test(s)?4:5;
+function placeOf(c,grp){
+  const n=c.name; let p, dy=null, short=null, label=null, depth=null, rest=null;
+  if(grp==="Sonsal Left Bank Canal"&&PIPE.test(n)){
+    const main=/Sonsal and Shirasgaon/i.test(n), piece=tidy(n);
+    short=main?"Sonsal-Shirasgaon PDN (Stage 4 rising main, 700MM MS)":piece; label=main?"Sonsal-Shirasgaon PDN":"Sonsal-Shirasgaon PDN/"+piece;
+    return {dy:9000,letter:"",rest:main?"0":(/^Main Canal/i.test(n)?"1":/^Sub Main/i.test(n)?"2":/^Mr|^M /i.test(n)?"3":/^SMr/i.test(n)?"4":"5")+piece,short,label,depth:main?0:1};
+  }
+  if(grp==="Chinchani Feeder Canal"||grp==="Mohite-Vadgaon Vitarika"){
+    const m=n.match(DYRE), sm=n.match(/Sub Minor No ?(\d+)/i);
+    p=[]; if(grp==="Chinchani Feeder Canal"&&m) p.push("DY-"+m[1]); if(sm) p.push("Sub Minor-"+sm[1]);
+    if(grp==="Mohite-Vadgaon Vitarika"&&p.length){ dy=0; depth=1; }
+  }else if(grp==="Takari-Dudhari Pipeline") p=[];
+  else if(PLACE[c.id]) p=PLACE[c.id].split("/");
+  else{
+    const s=n.replace(/^(Takari Main Canal|Sonsal LBC)\/?/,"").replace(/(\d)(Minor)/,"$1/$2");
+    p=s.split("/").filter(x=>x.trim()).map(x=>{ const m=x.match(DYRE); return m&&/^\s*D/i.test(x)?"DY-"+m[1]+(m[2]||""):tidy(x); })
+      .map((x,i)=>[x,i]).sort((a,b)=>rank(a[0])-rank(b[0])||a[1]-b[1]).map(x=>x[0]);
+  }
+  const d=p.length&&p[0].match(/^DY-(\d+)([A-D]?)$/);
+  if(dy==null) dy=!p.length?-1:d?+d[1]:(AFTER[c.id]!=null?AFTER[c.id]:9999);
+  short=p.length?p.join("/"):TRUNK[grp];
+  label=p.length?(PRE[grp]||"")+short:short;
+  return {dy,letter:d?d[2]:"",rest:d?p.slice(1).join("/"):p.join("/"),short,label,depth:depth!=null?depth:Math.max(0,p.length-1)};
 }
 const CANALS=window.CANALS_RAW.map(c=>{
   const dead=/cancel|cancled/i.test(c.remark||"")||c.status==="Proposed";
-  const k=sortKey(c);
-  return Object.assign({},c,{grp:groupOf(c),dead,k0:k[0],k1:k[1],
-    label:c.dup?c.name+" ("+(c.remark&&!/PDN/.test(c.remark)?c.remark:"part "+c.dup)+")":c.name,
-    depth:(c.name.replace(/^(Takari Main Canal|Sonsal LBC)\//,"").match(/\//g)||[]).length,
+  const grp=groupOf(c), pl=placeOf(c,grp);
+  return Object.assign({},c,{grp,dead,k0:pl.dy,kl:pl.letter,k1:pl.rest,label:pl.label,short:pl.short,depth:pl.depth,
     w:/Main Canal|Feeder|Rising/.test(c.type||"")?3.2:(c.type==="Distributary"||c.type==="Major"||c.type==="Branch Distributary")?1.9:1.1});
-}).sort((a,b)=>GORDER.indexOf(a.grp)-GORDER.indexOf(b.grp)||a.k0-b.k0||a.k1.localeCompare(b.k1,undefined,{numeric:true}));
+}).sort((a,b)=>GORDER.indexOf(a.grp)-GORDER.indexOf(b.grp)||a.k0-b.k0||a.kl.localeCompare(b.kl)||a.k1.localeCompare(b.k1,undefined,{numeric:true})||(a.off||0)-(b.off||0));
+/* the KMZ splits some canals into several lines with the same name: number them as parts */
+{ const seen=new Map(); for(const c of CANALS) seen.set(c.label,(seen.get(c.label)||0)+1);
+  const k=new Map(); for(const c of CANALS) if(seen.get(c.label)>1){ const i=(k.get(c.label)||0)+1; k.set(c.label,i); c.label+=" (part "+i+")"; c.short+=" (part "+i+")"; } }
 const BYID=new Map(CANALS.map(c=>[c.id,c]));
 document.getElementById("ncanals").textContent=CANALS.length;
 
@@ -417,14 +454,14 @@ function renderList(){
   const flush=()=>{ if(grp!==null&&buf) html+='<div class="grp"><span>'+esc(grp)+'</span><span>'+gopen+' of '+gn+' running</span></div><div class="rows">'+buf+'</div>'; buf="";gopen=0;gn=0; };
   for(const c of CANALS){
     const op=openPeriod(P(c.id));
-    if(q&&!(c.label.toLowerCase().includes(q)||(c.remark||"").toLowerCase().includes(q))) continue;
+    if(q&&![c.label,c.name,c.grp,c.remark].some(t=>(t||"").toLowerCase().includes(q))) continue;
     if(S.filter==="open"&&!op) continue;
     if(S.filter==="closed"&&op) continue;
     if(c.grp!==grp){ flush(); grp=c.grp; }
     gn++; if(op) gopen++; count++;
     const meta=[c.type,c.ica?c.ica+" ha":"",c.dead?(c.status==="Proposed"?"proposed":"cancelled"):""].filter(Boolean).join(" \u00b7 ");
     buf+='<button type="button" class="row'+(op?" open":"")+'" data-id="'+esc(c.id)+'" style="padding-left:'+(12+Math.min(c.depth,3)*14)+'px">'
-      +'<span class="nm"><b>'+esc(c.label)+'</b><small>'+esc(meta)+'</small></span>'
+      +'<span class="nm"><b>'+esc(c.short)+'</b><small>'+esc(meta)+'</small></span>'
       +(op?'<span class="pill open">Running '+esc(dur(now-op.s))+'</span>':'<span class="pill'+(c.dead?" na":"")+'">Closed</span>')+'</button>';
   }
   flush();
@@ -465,7 +502,7 @@ function renderSheet(){
   if(!S.sel) return; const c=BYID.get(S.sel), ps=P(c.id), op=openPeriod(ps), now=Date.now();
   const can=S.db&&S.canWrite!==false;
   const month=calc(ps,now-30*DAY,now,now);
-  const rows=[["Type",c.type],["Construction",c.cons],["Works status",c.status],["ICA",c.ica?c.ica+" ha":null],["Length",(c.lenw||c.len)?(c.lenw||c.len).toLocaleString("en-IN")+" m":null],
+  const rows=[["System",c.grp],["Name in KMZ",tidy(c.name)!==c.label.replace(/ \(part \d+\)$/,"")?c.name:null],["Type",c.type],["Construction",c.cons],["Works status",c.status],["ICA",c.ica?c.ica+" ha":null],["Length",(c.lenw||c.len)?(c.lenw||c.len).toLocaleString("en-IN")+" m":null],
     ["Offtake chainage",c.off!=null?c.off.toLocaleString("en-IN")+" m":null],["Bank",c.lr],["Remark",c.remark],["Last 30 days",month.ms?fmtHM(month.ms)+", "+month.runs+(month.runs===1?" opening":" openings"):"Did not run"]]
     .filter(r=>r[1]!=null&&r[1]!=="");
   let h='<div class="shead"><h2 id="sh-name">'+esc(c.label)+'</h2><button type="button" class="x" aria-label="Close">&times;</button></div>';
@@ -600,14 +637,21 @@ function drawLabels(){
 }
 /* find a canal: "dy24", "D.Y. No. 24" and "DY-24" all match */
 const norm=s=>String(s||"").toLowerCase().replace(/[\s.\-_()]/g,"").replace(/no(?=\d)/g,"");
-for(const c of CANALS){ c.nk=norm(c.label); c.segs=c.name.split("/").map(norm); }
+/* search keys: the clean label without "(part n)", its pieces, and the KMZ name as a fallback */
+for(const c of CANALS){ const l=c.label.replace(/ \(part \d+\)$/,""); c.nk=norm(l); c.lsegs=l.split("/").map(norm); c.nseg=c.name.split("/").map(norm); c.rk=norm(c.name)+norm(c.remark); }
+/* a system name in the query ("sonsal dy 9", "chinchani dy-5") limits the search to that system */
+const SYS=[[/dudhari/i,"Takari-Dudhari Pipeline"],[/sonsal|shirasgaon|\blbc\b/i,"Sonsal Left Bank Canal"],[/chinchani|ambak|feeder/i,"Chinchani Feeder Canal"],
+  [/mohite|vadgaon|vitarika/i,"Mohite-Vadgaon Vitarika"],[/takari|main canal/i,"Takari Main Canal"]];
 function findCanals(q){
-  const n=norm(q); if(!n) return [];
-  const pick=f=>CANALS.filter(f);
-  let r=pick(c=>c.nk===n||norm(c.name)===n); if(r.length) return r;
-  r=pick(c=>c.segs[c.segs.length-1]===n); if(r.length) return r;
-  r=pick(c=>c.segs.includes(n)); if(r.length) return r;
-  return pick(c=>c.nk.includes(n)||norm(c.remark).includes(n));
+  let pool=CANALS, t=String(q||"");
+  for(const [re,g] of SYS) if(re.test(t)){ const rest=t.replace(new RegExp(re.source,"gi"),"").replace(/\b(lbc|pdn|canal|pipeline)\b/gi,"");
+    if(norm(rest)){ pool=CANALS.filter(c=>c.grp===g); t=rest; } break; }
+  const n=norm(t); if(!n) return [];
+  const pick=f=>pool.filter(f);
+  let r=pick(c=>c.nk===n); if(r.length) return r;
+  r=pick(c=>c.lsegs[c.lsegs.length-1]===n); if(r.length) return r;
+  r=pick(c=>c.lsegs.includes(n)||c.nseg.includes(n)); if(r.length) return r;
+  return pick(c=>c.nk.includes(n)||c.rk.includes(n));
 }
 function flashMsg(t,miss){ const el=$("mcount"); V.msg=true; el.textContent=t; el.classList.toggle("miss",!!miss); }
 function goToCanals(list){
@@ -624,7 +668,10 @@ function clearFind(){ if(!V.hl.size&&!V.msg) return; V.hl=new Set(); V.msg=false
 $("mqlist").innerHTML=CANALS.map(c=>'<option value="'+esc(c.label)+'">').join("");
 { const n=new Map(); for(const c of CANALS) n.set(c.grp,(n.get(c.grp)||0)+1);
   $("mgrp").insertAdjacentHTML("beforeend",GORDER.filter(g=>n.has(g)).map(g=>'<option value="'+esc(g)+'">'+esc(g)+' ('+n.get(g)+')</option>').join("")); }
-$("mform").addEventListener("submit",e=>{ e.preventDefault(); goToCanals(findCanals($("mq").value)); });
+$("mform").addEventListener("submit",e=>{ e.preventDefault(); const v=$("mq").value;
+  /* just a system name ("sonsal", "chinchani") picks that system, like the group menu */
+  for(const [re,g] of SYS) if(re.test(v)){ if(!norm(v.replace(new RegExp(re.source,"gi"),"").replace(/\b(lbc|pdn|canal|pipeline)\b/gi,""))){ $("mgrp").value=g; $("mgrp").dispatchEvent(new Event("change")); return; } break; }
+  goToCanals(findCanals(v)); });
 $("mq").addEventListener("input",()=>{ const v=$("mq").value; if(!v.trim()) return clearFind();
   const exact=CANALS.filter(c=>c.label===v); if(exact.length) goToCanals(exact); });
 $("mgrp").addEventListener("change",()=>{ V.grp=$("mgrp").value; V.hl=new Set(); V.msg=false; drawMap();
