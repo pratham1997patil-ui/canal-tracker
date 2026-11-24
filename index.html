@@ -159,6 +159,13 @@ summary{cursor:pointer;font-weight:600}
 .locbtn{width:34px;height:34px;border-radius:4px;border:2px solid rgba(0,0,0,.2);background:#fff;color:#111;font-size:18px;cursor:pointer;line-height:1}
 .scrim{z-index:2000}
 .acts{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:8px 0}
+/* map tools */
+#mform{margin-bottom:6px}
+#mform select{flex:0 1 220px}
+.mcount{margin:0 0 8px;min-height:1.2em}
+.mcount.miss{color:var(--danger)}
+.ctip.dim{background:rgba(0,16,24,.62);font-weight:500;font-size:11px}
+.ctip.hl{background:#ffd400;color:#111}
 </style>
 </head>
 <body>
@@ -187,6 +194,14 @@ summary{cursor:pointer;font-weight:600}
   </nav>
 
   <section class="view" id="v-map">
+    <form class="tools" id="mform" role="search">
+      <input type="search" id="mq" list="mqlist" placeholder="Find canal on map, e.g. DY-24" aria-label="Find a canal on the map" autocomplete="off">
+      <datalist id="mqlist"></datalist>
+      <select id="mgrp" aria-label="Canal group to show"><option value="">All canal groups</option></select>
+      <button type="button" class="chip" id="mrun" aria-pressed="false">Running only</button>
+      <button type="button" class="btn" id="mfit">Show whole network</button>
+    </form>
+    <div class="sub mcount" id="mcount" aria-live="polite"></div>
     <div class="mapbox">
       <div id="map" aria-label="Satellite map of the canal network. Tap a canal to see or change its status."></div>
       
@@ -536,8 +551,10 @@ function initMap(){
     const halo=L.polyline(ll,{renderer:rend,interactive:false}).addTo(map);
     const line=L.polyline(ll,{renderer:rend}).addTo(map);
     line.on("click",e=>{ L.DomEvent.stop(e); openSheet(c.id); });
-    LY.set(c.id,{halo,line,key:-1,tip:null,ll});
+    const longest=ll.reduce((x,z)=>z.length>x.length?z:x);
+    LY.set(c.id,{halo,line,key:-1,tip:null,ll,on:true,bb:L.latLngBounds(ll.flat()),mid:longest[Math.floor(longest.length/2)]});
   }
+  map.on("zoomend moveend",drawLabels);
   bounds=L.latLngBounds(all); map.setView(bounds.getCenter(),11); V.fitted=false;
   const Loc=L.Control.extend({options:{position:"topleft"},onAdd(){ const b=L.DomUtil.create("button","locbtn"); b.type="button"; b.textContent="◎"; b.title="Show my location"; b.setAttribute("aria-label","Show my location");
     L.DomEvent.disableClickPropagation(b); b.onclick=()=>map.locate({setView:true,maxZoom:15}); return b; }});
@@ -545,15 +562,74 @@ function initMap(){
   let me=null; map.on("locationfound",e=>{ if(me) me.remove(); me=L.circleMarker(e.latlng,{radius:8,color:"#fff",weight:2,fillColor:"#ff3b30",fillOpacity:1}).addTo(map); });
   map.on("locationerror",()=>setNote("Your location could not be read. Allow location access for this site and try again."));
 }
+/* map filters: V.grp = canal group shown ("" = all), V.run = running only, V.hl = canals found by map search */
+V.grp=""; V.run=false; V.hl=new Set();
+const LABEL_ZOOM=14;
+const shortName=c=>{ const s=c.label.replace(/^(Takari Main Canal|Sonsal LBC)\//,"").split("/"); return s.length>2?s.slice(-2).join("/"):s.join("/"); };
+const visible=(c,o)=>(!V.grp||c.grp===V.grp)&&(!V.run||o);
 function drawMap(){
-  if(!map) return;
-  for(const c of CANALS){ const y=LY.get(c.id), o=!!openPeriod(P(c.id)), sel=S.sel===c.id, key=(o?1:0)+(sel?2:0); if(y.key===key) continue; y.key=key;
-    y.halo.setStyle({color:sel?"#ffd400":"#001018",weight:(o?c.w+7:c.w+3.5),opacity:sel?1:(o?.75:.55)});
+  if(!map) return; let shown=0,run=0;
+  for(const c of CANALS){ const y=LY.get(c.id), o=!!openPeriod(P(c.id)), hl=V.hl.has(c.id), sel=S.sel===c.id||hl, v=visible(c,o);
+    if(v!==y.on){ y.on=v; y.key=-1;
+      if(v){ y.halo.addTo(map); y.line.addTo(map); }
+      else{ y.halo.remove(); y.line.remove(); if(y.tip){ y.tip.remove(); y.tip=null; } } }
+    if(!v) continue; shown++; if(o) run++;
+    const key=(o?1:0)+(sel?2:0)+(hl?4:0); if(y.key===key) continue; y.key=key;
+    y.halo.setStyle({color:sel?"#ffd400":"#001018",weight:(o?c.w+7:c.w+3.5)+(hl?3:0),opacity:sel?1:(o?.75:.55)});
     y.line.setStyle({color:o?"#38b8ff":(c.dead?"#cfd6d6":"#ffffff"),weight:o?c.w+3:c.w+1,opacity:1,dashArray:c.dead&&!o?"4 6":null});
     if(o||sel){ y.halo.bringToFront(); y.line.bringToFront(); }
-    if(o&&!y.tip){ const l=y.ll.reduce((x,z)=>z.length>x.length?z:x); y.tip=L.tooltip({permanent:true,direction:"right",className:"ctip",opacity:1,interactive:false}).setLatLng(l[Math.floor(l.length/2)]).setContent(esc(c.label.replace(/^Takari Main Canal\//,""))).addTo(map); }
-    else if(!o&&y.tip){ y.tip.remove(); y.tip=null; } }
+    if(y.tip){ y.tip.remove(); y.tip=null; }
+    if(o||hl) y.tip=L.tooltip({permanent:true,direction:"right",className:"ctip"+(hl?" hl":""),opacity:1,interactive:false}).setLatLng(y.mid).setContent(esc(c.label.replace(/^Takari Main Canal\//,""))).addTo(map);
+  }
+  if(!V.msg) setCount(shown,run);
+  drawLabels();
 }
+function setCount(shown,run){ const el=$("mcount"); el.classList.remove("miss");
+  if(V.run&&!run){ el.textContent="No canal"+(V.grp?" in "+V.grp:"")+" is running right now."; return; }
+  el.textContent="Showing "+shown+" of "+CANALS.length+" canals · "+run+" running"+(map&&map.getZoom()<LABEL_ZOOM?" · zoom in to see every canal's name":""); }
+/* names for every canal in view once zoomed in close */
+const LB=new Map();
+function drawLabels(){
+  if(!map) return; const z=map.getZoom(), vb=map.getBounds().pad(0.1);
+  for(const c of CANALS){ const y=LY.get(c.id), t=LB.get(c.id), want=z>=LABEL_ZOOM&&y.on&&!y.tip&&vb.intersects(y.bb);
+    if(want&&!t) LB.set(c.id,L.tooltip({permanent:true,direction:"center",className:"ctip dim",opacity:1,interactive:false}).setLatLng(y.mid).setContent(esc(shortName(c))).addTo(map));
+    else if(!want&&t){ t.remove(); LB.delete(c.id); } }
+  if(!V.msg){ let s=0,r=0; for(const c of CANALS){ if(LY.get(c.id).on){ s++; if(openPeriod(P(c.id))) r++; } } setCount(s,r); }
+}
+/* find a canal: "dy24", "D.Y. No. 24" and "DY-24" all match */
+const norm=s=>String(s||"").toLowerCase().replace(/[\s.\-_()]/g,"").replace(/no(?=\d)/g,"");
+for(const c of CANALS){ c.nk=norm(c.label); c.segs=c.name.split("/").map(norm); }
+function findCanals(q){
+  const n=norm(q); if(!n) return [];
+  const pick=f=>CANALS.filter(f);
+  let r=pick(c=>c.nk===n||norm(c.name)===n); if(r.length) return r;
+  r=pick(c=>c.segs[c.segs.length-1]===n); if(r.length) return r;
+  r=pick(c=>c.segs.includes(n)); if(r.length) return r;
+  return pick(c=>c.nk.includes(n)||norm(c.remark).includes(n));
+}
+function flashMsg(t,miss){ const el=$("mcount"); V.msg=true; el.textContent=t; el.classList.toggle("miss",!!miss); }
+function goToCanals(list){
+  if(!map) return;
+  if(!list.length){ V.hl=new Set(); drawMap(); return flashMsg("No canal matches “"+$("mq").value.trim()+"”. Try a number like DY-24 or Minor-3L.",true); }
+  if(list.length>25){ return flashMsg(list.length+" canals match. Type a bit more, e.g. DY-24/Minor-1.",true); }
+  if(list.some(c=>!visible(c,!!openPeriod(P(c.id))))){ V.grp=""; V.run=false; $("mgrp").value=""; $("mrun").setAttribute("aria-pressed","false"); }
+  V.hl=new Set(list.map(c=>c.id)); V.msg=false; drawMap();
+  const bb=L.latLngBounds(list.flatMap(c=>LY.get(c.id).ll.flat()));
+  map.invalidateSize(); map.fitBounds(bb,{padding:[40,40],maxZoom:16});
+  flashMsg(list.length===1?"Found "+list[0].label+". Tap the yellow line to open it.":"Found "+list.length+" canals, shown in yellow. Tap one to open it.");
+}
+function clearFind(){ if(!V.hl.size&&!V.msg) return; V.hl=new Set(); V.msg=false; drawMap(); }
+$("mqlist").innerHTML=CANALS.map(c=>'<option value="'+esc(c.label)+'">').join("");
+{ const n=new Map(); for(const c of CANALS) n.set(c.grp,(n.get(c.grp)||0)+1);
+  $("mgrp").insertAdjacentHTML("beforeend",GORDER.filter(g=>n.has(g)).map(g=>'<option value="'+esc(g)+'">'+esc(g)+' ('+n.get(g)+')</option>').join("")); }
+$("mform").addEventListener("submit",e=>{ e.preventDefault(); goToCanals(findCanals($("mq").value)); });
+$("mq").addEventListener("input",()=>{ const v=$("mq").value; if(!v.trim()) return clearFind();
+  const exact=CANALS.filter(c=>c.label===v); if(exact.length) goToCanals(exact); });
+$("mgrp").addEventListener("change",()=>{ V.grp=$("mgrp").value; V.hl=new Set(); V.msg=false; drawMap();
+  if(!map) return; const g=CANALS.filter(c=>!V.grp||c.grp===V.grp);
+  map.fitBounds(V.grp?L.latLngBounds(g.flatMap(c=>LY.get(c.id).ll.flat())):bounds,{padding:[12,12]}); });
+$("mrun").addEventListener("click",()=>{ V.run=!V.run; $("mrun").setAttribute("aria-pressed",V.run); V.msg=false; drawMap(); });
+$("mfit").addEventListener("click",()=>{ V.grp=""; V.run=false; $("mgrp").value=""; $("mrun").setAttribute("aria-pressed","false"); $("mq").value=""; V.hl=new Set(); V.msg=false; drawMap(); if(map) map.fitBounds(bounds,{padding:[12,12]}); });
 function sizeMap(){ if(!map) return false; map.invalidateSize(); if(!V.fitted&&map.getSize().x>0){ map.fitBounds(bounds,{padding:[12,12]}); V.fitted=true; } return true; }
 function showOnMap(id){ closeSheet(); location.hash="#map"; setTimeout(()=>{ if(!map) return; map.invalidateSize(); map.fitBounds(L.latLngBounds(LY.get(id).ll.flat()),{padding:[40,40],maxZoom:16}); S.sel=id; drawMap(); },60); }
 $("sheet").addEventListener("click",e=>{ if(e.target.id==="showmap"&&S.sel) showOnMap(S.sel); });
