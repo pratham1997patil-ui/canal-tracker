@@ -157,6 +157,10 @@ summary{cursor:pointer;font-weight:600}
 .ctip{background:rgba(0,16,24,.82);color:#fff;border:0;border-radius:4px;padding:1px 6px;font:600 12px var(--display);box-shadow:none}
 .ctip:before{display:none}
 .locbtn{width:34px;height:34px;border-radius:4px;border:2px solid rgba(0,0,0,.2);background:#fff;color:#111;font-size:18px;cursor:pointer;line-height:1}
+.mbtns{display:flex;flex-direction:column;gap:6px}
+.mbtn{min-width:34px;height:34px;padding:0 9px;border-radius:4px;border:2px solid rgba(0,0,0,.2);background:#fff;color:#111;font:600 12px var(--body);cursor:pointer;white-space:nowrap}
+.mbtn[aria-pressed="true"]{background:#111;color:#fff}
+.lines-off .leaflet-overlay-pane,.lines-off .leaflet-tooltip-pane{display:none}
 .scrim{z-index:2000}
 .acts{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:8px 0}
 /* canals tab: tap a system to see its DYs, tap "Show" on a DY to see its minors */
@@ -633,15 +637,45 @@ document.addEventListener("click",e=>{ const r=e.target.closest("[data-id]"); if
 
 /* ---------- map (Leaflet, satellite) ---------- */
 const V={fitted:false}; let map=null,bounds=null; const LY=new Map();
+/* Zoom 19 is about 0.3 m a pixel here, zoom 20 about 0.15 m; beyond the sharpest photo the map only enlarges it. */
+const MAXZ=21, SAFEZ=18;
+/* Esri imagery that uses the sharpest photo each spot has. Above zoom 18, Esri's tilemap says which tiles
+   exist; where one is missing the tile is cut from the nearest zoom that has a photo, so no grey
+   "map data not yet available" squares appear. If the tilemap can't be read, zoom 18 photos are used. */
+const EsriSharp=window.L&&L.TileLayer.extend({
+  initialize(svc,opt){ this._svc=svc; this._tm=new Map(); L.TileLayer.prototype.initialize.call(this,svc+"/tile/{z}/{y}/{x}",Object.assign({maxZoom:MAXZ,maxNativeZoom:20},opt)); },
+  _has(z,x,y){
+    const r0=Math.floor(y/32)*32, c0=Math.floor(x/32)*32, k=z+"/"+r0+"/"+c0;
+    if(!this._tm.has(k)) this._tm.set(k,fetch(this._svc+"/tilemap/"+z+"/"+r0+"/"+c0+"/32/32").then(r=>r.ok?r.json():null).catch(()=>null));
+    return this._tm.get(k).then(j=>{ if(!j||!Array.isArray(j.data)) return false; const l=j.location||{left:c0,top:r0,width:32};
+      const i=(y-l.top)*l.width+(x-l.left); return i>=0&&i<j.data.length&&!!j.data[i]; });
+  },
+  createTile(co,done){
+    if(co.z<=SAFEZ) return L.TileLayer.prototype.createTile.call(this,co,done);
+    const t=document.createElement("canvas"); t.width=t.height=256;
+    const draw=z=>{ const f=2**(co.z-z), x=Math.floor(co.x/f), y=Math.floor(co.y/f), im=new Image();
+      im.onload=()=>{ const s=256/f, cx=t.getContext("2d"); cx.imageSmoothingQuality="high"; cx.drawImage(im,(co.x-x*f)*s,(co.y-y*f)*s,s,s,0,0,256,256); done(null,t); };
+      im.onerror=()=>done(new Error("tile"),t); im.src=L.Util.template(this._url,{z,x,y}); };
+    const step=z=>{ if(z<=SAFEZ) return draw(SAFEZ); const f=2**(co.z-z); this._has(z,Math.floor(co.x/f),Math.floor(co.y/f)).then(ok=>ok?draw(z):step(z-1)); };
+    step(co.z); return t;
+  }
+});
 function initMap(){
   if(!window.L){ $("map").innerHTML='<p class="empty">The map could not load. Check your connection and reload the page.</p>'; return; }
-  map=L.map("map",{preferCanvas:true});
+  map=L.map("map",{preferCanvas:true,maxZoom:MAXZ});
   map.createPane("names"); map.getPane("names").style.zIndex=450; map.getPane("names").style.pointerEvents="none";
-  const sat=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,maxNativeZoom:18,attribution:"Imagery &copy; Esri, Maxar, Earthstar Geographics"});
-  const names=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,maxNativeZoom:16,pane:"names",attribution:"Place names &copy; Esri"});
-  const street=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"});
-  const hybrid=L.layerGroup([sat,names]).addTo(map);
-  L.control.layers({"Satellite with village names":hybrid,"Street map (shows villages)":street},null,{position:"topright"}).addTo(map);
+  const ESRI="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer";
+  const CLARITY="https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer";
+  const credit="Imagery &copy; Esri, Maxar, Earthstar Geographics";
+  const nameLayer=()=>L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:MAXZ,maxNativeZoom:16,pane:"names",attribution:"Place names &copy; Esri"});
+  const BASES={
+    "Satellite, sharpest":L.layerGroup([new EsriSharp(ESRI,{attribution:credit}),nameLayer()]),
+    "Satellite, Clarity (clearer colours)":L.layerGroup([new EsriSharp(CLARITY,{attribution:credit+" (Clarity)"}),nameLayer()]),
+    "Street map (shows villages)":L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:MAXZ,maxNativeZoom:19,attribution:"&copy; OpenStreetMap contributors"})};
+  let base="Satellite, sharpest"; try{ const b=localStorage.getItem("mapBase"); if(BASES[b]) base=b; }catch(e){}
+  BASES[base].addTo(map);
+  map.on("baselayerchange",e=>{ try{ localStorage.setItem("mapBase",e.name); }catch(x){} });
+  L.control.layers(BASES,null,{position:"topright"}).addTo(map);
   L.control.scale({imperial:false}).addTo(map);
   const rend=L.canvas({tolerance:12,padding:0.4});
   const all=[];
@@ -653,11 +687,19 @@ function initMap(){
     const longest=ll.reduce((x,z)=>z.length>x.length?z:x);
     LY.set(c.id,{halo,line,key:-1,tip:null,ll,on:true,bb:L.latLngBounds(ll.flat()),mid:longest[Math.floor(longest.length/2)]});
   }
-  map.on("zoomend moveend",drawLabels);
+  map.on("zoomend",drawMap); map.on("moveend",drawLabels);
   bounds=L.latLngBounds(all); map.setView(bounds.getCenter(),11); V.fitted=false;
   const Loc=L.Control.extend({options:{position:"topleft"},onAdd(){ const b=L.DomUtil.create("button","locbtn"); b.type="button"; b.textContent="◎"; b.title="Show my location"; b.setAttribute("aria-label","Show my location");
-    L.DomEvent.disableClickPropagation(b); b.onclick=()=>map.locate({setView:true,maxZoom:15}); return b; }});
+    L.DomEvent.disableClickPropagation(b); b.onclick=()=>map.locate({setView:true,maxZoom:18}); return b; }});
   map.addControl(new Loc());
+  /* hide the drawn lines to see the canal itself; open the same spot in Google Maps satellite */
+  const Tools=L.Control.extend({options:{position:"topleft"},onAdd(){ const d=L.DomUtil.create("div","mbtns");
+    const hide=L.DomUtil.create("button","mbtn",d); hide.type="button"; hide.textContent="Hide lines"; hide.setAttribute("aria-pressed","false"); hide.title="Hide the drawn canal lines to see the canal on the ground";
+    hide.onclick=()=>{ const off=!$("map").classList.contains("lines-off"); $("map").classList.toggle("lines-off",off); hide.textContent=off?"Show lines":"Hide lines"; hide.setAttribute("aria-pressed",off); };
+    const g=L.DomUtil.create("button","mbtn",d); g.type="button"; g.textContent="Google"; g.title="Open this spot in Google Maps satellite view";
+    g.onclick=()=>{ const c=map.getCenter(); window.open("https://www.google.com/maps/@?api=1&map_action=map&basemap=satellite&center="+c.lat.toFixed(6)+","+c.lng.toFixed(6)+"&zoom="+Math.min(21,Math.round(map.getZoom())),"_blank","noopener"); };
+    L.DomEvent.disableClickPropagation(d); return d; }});
+  map.addControl(new Tools());
   let me=null; map.on("locationfound",e=>{ if(me) me.remove(); me=L.circleMarker(e.latlng,{radius:8,color:"#fff",weight:2,fillColor:"#ff3b30",fillOpacity:1}).addTo(map); });
   map.on("locationerror",()=>setNote("Your location could not be read. Allow location access for this site and try again."));
 }
@@ -667,15 +709,19 @@ const LABEL_ZOOM=14;
 const shortName=c=>{ const s=c.label.replace(/^(Takari Main Canal|Sonsal LBC)\//,"").split("/"); return s.length>2?s.slice(-2).join("/"):s.join("/"); };
 const visible=(c,o)=>(!V.grp||c.grp===V.grp)&&(!V.run||o);
 function drawMap(){
-  if(!map) return; let shown=0,run=0;
+  if(!map) return; let shown=0,run=0; const close=map.getZoom()>=17;
   for(const c of CANALS){ const y=LY.get(c.id), o=!!openPeriod(P(c.id)), hl=V.hl.has(c.id), sel=S.sel===c.id||hl, v=visible(c,o);
     if(v!==y.on){ y.on=v; y.key=-1;
       if(v){ y.halo.addTo(map); y.line.addTo(map); }
       else{ y.halo.remove(); y.line.remove(); if(y.tip){ y.tip.remove(); y.tip=null; } } }
     if(!v) continue; shown++; if(o) run++;
-    const key=(o?1:0)+(sel?2:0)+(hl?4:0); if(y.key===key) continue; y.key=key;
+    const key=(o?1:0)+(sel?2:0)+(hl?4:0)+(close?8:0); if(y.key===key) continue; y.key=key;
+    if(close){ /* zoomed in close: thin see-through outline so the canal on the ground shows */
+      y.halo.setStyle({color:sel?"#ffd400":"#001018",weight:sel?6:3.5,opacity:sel?.9:.35});
+      y.line.setStyle({color:o?"#38b8ff":(c.dead?"#cfd6d6":"#ffffff"),weight:o?2.5:1.5,opacity:.85,dashArray:c.dead&&!o?"4 6":null});
+    }else{
     y.halo.setStyle({color:sel?"#ffd400":"#001018",weight:(o?c.w+7:c.w+3.5)+(hl?3:0),opacity:sel?1:(o?.75:.55)});
-    y.line.setStyle({color:o?"#38b8ff":(c.dead?"#cfd6d6":"#ffffff"),weight:o?c.w+3:c.w+1,opacity:1,dashArray:c.dead&&!o?"4 6":null});
+    y.line.setStyle({color:o?"#38b8ff":(c.dead?"#cfd6d6":"#ffffff"),weight:o?c.w+3:c.w+1,opacity:1,dashArray:c.dead&&!o?"4 6":null}); }
     if(o||sel){ y.halo.bringToFront(); y.line.bringToFront(); }
     if(y.tip){ y.tip.remove(); y.tip=null; }
     if(o||hl) y.tip=L.tooltip({permanent:true,direction:"right",className:"ctip"+(hl?" hl":""),opacity:1,interactive:false}).setLatLng(y.mid).setContent(esc(c.label.replace(/^Takari Main Canal\//,""))).addTo(map);
